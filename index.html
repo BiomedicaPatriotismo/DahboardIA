@@ -5,16 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard de Mantenimiento y Servicio (Avanzado)</title>
     
-    <!-- Fuentes y librerías externas esenciales -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- Librería para DataLabels (Porcentajes en pie chart) -->
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
-    <!-- ¡IMPORTANTE! Librería PapaParse para leer CSV sin errores -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     
-    <!-- Configuración de Tailwind -->
     <script>
         tailwind.config = {
             theme: {
@@ -43,7 +39,6 @@
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen pb-12">
 
-    <!-- Mensaje de Carga y Error -->
     <div id="loadingBanner" class="max-w-7xl mx-auto px-4 mt-6 fade-in">
         <div class="bg-blue-50 border-l-4 border-blue-500 text-blue-700 p-4 rounded-xl shadow-sm flex items-center">
             <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
@@ -73,7 +68,6 @@
                 <div class="relative w-full sm:w-56">
                     <select id="monthFilter" class="appearance-none bg-slate-50 border border-slate-200 text-slate-900 text-sm font-medium rounded-xl focus:ring-brand-500 focus:border-brand-500 block w-full p-3 pr-10 cursor-pointer outline-none">
                         <option value="todos">Todos los meses (Anual)</option>
-                        <!-- Los meses se generarán dinámicamente o se forzarán -->
                         <option value="enero">Enero</option>
                         <option value="febrero">Febrero</option>
                         <option value="marzo">Marzo</option>
@@ -145,6 +139,26 @@
             </div>
         </div>
 
+        <h2 class="text-lg font-bold text-slate-800 mb-4 px-2 mt-8">Estatus de Equipos Atendidos</h2>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
+            <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between">
+                <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-2">Garantía</div>
+                <div class="text-3xl font-bold text-slate-800" id="ind-garantia">0</div>
+            </div>
+            <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between">
+                <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-2">En Contrato</div>
+                <div class="text-3xl font-bold text-slate-800" id="ind-contrato">0</div>
+            </div>
+            <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between">
+                <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-2">Fuera de Servicio</div>
+                <div class="text-3xl font-bold text-red-500" id="ind-fuera">0</div>
+            </div>
+            <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between">
+                <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-2">A Prueba (8 Días)</div>
+                <div class="text-3xl font-bold text-orange-500" id="ind-prueba">0</div>
+            </div>
+        </div>
+
         <h2 class="text-lg font-bold text-slate-800 mb-4 px-2">Análisis Dinámico (Tablas Dinámicas)</h2>
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
             <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
@@ -169,7 +183,6 @@
         </div>
     </div>
 
-    <!-- Modal para Oportunidades de Venta -->
     <div id="modalOportunidades" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden flex items-center justify-center z-50 fade-in">
         <div class="bg-white rounded-2xl w-11/12 max-w-5xl max-h-[85vh] overflow-hidden shadow-2xl flex flex-col">
             <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
@@ -204,28 +217,19 @@
     </div>
 
     <script>
-        // Registrar el plugin DataLabels
         Chart.register(ChartDataLabels);
 
         let charts = { carga: null, tipos: null, clientes: null, marcas: null };
-        
-        // Estructuras para guardar los datos leídos
-        let datosAgrupadosPorMes = []; // Leerá de la pestaña 'Data_Dashboard'
-        let datosDetalleOrdenes = [];  // Leerá del archivo Corpus (Orden de trabajo) para Tablas dinámicas y Oportunidades
+        let datosAgrupadosPorMes = []; 
+        let datosDetalleOrdenes = [];  
 
         const palette = ['#14b8a6', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444', '#64748b', '#0ea5e9'];
 
-        // URLs a tus dos fuentes de datos (asumiendo que las publicas como CSV)
-        // 1. Pestaña "Data_Dashboard" (para los KPIs mensuales y anuales agregados)
         const csvUrlDashboard = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTX8QjDtAKXCfIUI4Uc2FENvOfBh-XCoxjBGWiTxRkqHQ3YjnvY3TnZf7FqJsn2o3yAyhV0ge78nJea/pub?gid=570492353&single=true&output=csv';
-        
-        // 2. Archivo completo "Orden de Trabajo" (para las tablas dinámicas y desglose de ingenieros/oportunidades)
-        // Usaremos el GID principal (gid=0) que usualmente es "Form responses".
         const csvUrlCorpus = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTX8QjDtAKXCfIUI4Uc2FENvOfBh-XCoxjBGWiTxRkqHQ3YjnvY3TnZf7FqJsn2o3yAyhV0ge78nJea/pub?gid=680282818&single=true&output=csv';
         
         async function cargarDatos() {
             try {
-                // Descargar ambos CSV en paralelo
                 const [respDashboard, respCorpus] = await Promise.all([
                     fetch(csvUrlDashboard + '&t=' + new Date().getTime()),
                     fetch(csvUrlCorpus + '&t=' + new Date().getTime())
@@ -236,29 +240,20 @@
                 const csvTextoDashboard = await respDashboard.text();
                 const csvTextoCorpus = await respCorpus.text();
 
-                // Procesar la hoja de "Data_Dashboard" usando PapaParse
                 Papa.parse(csvTextoDashboard, {
                     header: true,
                     skipEmptyLines: true,
-                    // transformHeader normaliza los nombres de columna: minúsculas y sin espacios a los lados
                     transformHeader: function(h) { return h.trim().toLowerCase(); },
-                    complete: function(results) {
-                        datosAgrupadosPorMes = results.data;
-                    }
+                    complete: function(results) { datosAgrupadosPorMes = results.data; }
                 });
 
-                // Procesar la hoja Corpus ("Orden de trabajo")
                 Papa.parse(csvTextoCorpus, {
                     header: true,
                     skipEmptyLines: true,
-                    // transformHeader unifica las mayúsculas y quita espacios
                     transformHeader: function(h) { return h.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""); },
-                    complete: function(results) {
-                        procesarDatosCorpus(results.data);
-                    }
+                    complete: function(results) { procesarDatosCorpus(results.data); }
                 });
 
-                // Pequeña espera para asegurar que ambas promesas asíncronas de PapaParse concluyan
                 setTimeout(() => {
                     document.getElementById('loadingBanner').style.display = 'none';
                     document.getElementById('dashboardContent').style.display = 'block';
@@ -277,33 +272,25 @@
             document.getElementById('errorTexto').innerText = mensaje;
         }
 
-        // Esta función procesa los datos detallados de "Orden de trabajo"
         function procesarDatosCorpus(data) {
             datosDetalleOrdenes = [];
             
             data.forEach(row => {
                 let obj = {};
                 
-                // Mapeo adaptado a las columnas del Corpus document
                 obj['Mes'] = (row['mes'] || 'sin mes').toLowerCase().trim();
                 obj['ID'] = row['id unico'] || row['submission id'] || row['idunico'] || 'S/N';
-                
-                // Manejar variaciones para el nombre del Ingeniero
                 obj['Ingeniero'] = row['ingeniero de servicio'] || row['ingeniero'] || row['tecnico'] || 'Sin Asignar';
                 obj['Equipo'] = row['equipo:'] || row['equipo'] || 'Sin Equipo';
                 obj['Tipo de Servicio'] = row['tipo de servicio o mantenimiento'] || '';
                 obj['Cliente'] = row['unidad:'] || row['unidad'] || row['cliente'] || 'Sin Cliente';
                 obj['Marca'] = row['marca:'] || row['marca'] || 'Sin Marca';
 
-                // Guardar estatus limpio para conteo de indicadores (Garantía, Contrato, etc.)
-                // Buscamos tanto en 'estatus de seguimiento' como en 'escribauna'
                 let textoEstatus = (row['estatus de seguimiento'] || row['escribauna'] || '').toUpperCase().trim();
                 obj['estatus_seguimiento_limpio'] = textoEstatus.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
-                // Lógica EXACTA para Oportunidades de Venta basada en Estatus de Seguimiento
                 let estatusSeguimiento = (row['estatus de seguimiento'] || '').toUpperCase().trim();
                 
-                // Juntamos el texto de las notas solo para que tengas contexto de por qué requiere cotización en la tabla
                 let textosNota = [
                     row['escribauna'],
                     row['observaciones:'],
@@ -311,27 +298,22 @@
                     row['detalle de funcionalidad:'],
                     row['detalle de funcionalidad']
                 ];
-                
                 let notaCompleta = textosNota.filter(Boolean).join(' | ').toUpperCase();
                 
                 obj['oportunidad'] = false;
                 obj['motivo_venta'] = '';
                 
-                // Solo será oportunidad de venta si en la columna dice REQUIERE COTIZACIÓN
                 if (estatusSeguimiento.includes('REQUIERE COTIZACION') || estatusSeguimiento.includes('REQUIERE COTIZACIÓN')) {
                     obj['oportunidad'] = true;
-                    // Mostramos las notas para que el usuario sepa qué refacción se necesita cotizar
                     obj['motivo_venta'] = notaCompleta !== '' ? notaCompleta : 'Sin notas adicionales';
                 }
 
-                // Guardar si tiene un ID válido (ignoramos filas completamente vacías)
                 if (obj['ID'] !== 'S/N') {
                     datosDetalleOrdenes.push(obj);
                 }
             });
         }
 
-        // Función auxiliar para convertir valores de porcentaje en strings (ej. "80.00%") a números (ej. 80.0)
         const parsePercent = (val) => {
             if (!val) return 0;
             if (typeof val === 'number') return val;
@@ -339,16 +321,12 @@
             return isNaN(num) ? 0 : num;
         };
 
-        // Función auxiliar para formatear los números a un estilo uniforme (con el símbolo %)
         const formatearKPI = (valor, esPorcentaje = false) => {
              if (esPorcentaje) return valor.toFixed(1) + '%';
-             return valor.toFixed(1); // Para casos como MTTR o Fallas críticas si no son porcentajes
+             return valor.toFixed(1); 
         };
 
         function renderizarDashboard(filtroMes) {
-            // ==========================================
-            // 1. RENDERIZAR KPIs desde Data_Dashboard
-            // ==========================================
             let sumMTTR = 0, sumFallas = 0, sumPrev = 0, sumCorr = 0, sumEntrega = 0, sumRefac = 0, sumVentas = 0;
             let kpiTotalItems = 0;
 
@@ -359,24 +337,16 @@
 
             if (datosFiltradosKPI.length > 0) {
                 datosFiltradosKPI.forEach(d => {
-                    // Validamos la información contra las columnas descritas en tu imagen ("mes", "fallas_criticas", etc.)
-                    // Sumamos los valores para luego sacar un promedio en caso de la vista "Anual" (todos los meses)
                     sumPrev += parsePercent(d.ratio_preventivo);
-                    sumCorr += parsePercent(d.ratio_corectivo || d.ratio_correctivo); // manejar error de tipeo en hoja
+                    sumCorr += parsePercent(d.ratio_corectivo || d.ratio_correctivo); 
                     sumMTTR += Number(d.mttr) || 0;
                     sumEntrega += parsePercent(d.tasa_entrega);
                     sumRefac += parsePercent(d.tasa_refacciones);
-                    
-                    // Fallas críticas parece venir como porcentaje en tu screenshot (ej 80.00%). Lo trataremos como tal
                     sumFallas += parsePercent(d.fallas_criticas);
-                    
-                    // Oportunidades de venta parece ser un número entero.
                     sumVentas += parseInt(d.oportunidades_venta) || 0;
-                    
                     kpiTotalItems++;
                 });
 
-                // Si se selecciona un mes específico, el promedio es solo el valor del mes. Si es anual, es el promedio de todos los meses con datos.
                 let divisorPromedio = filtroMes === 'todos' ? kpiTotalItems : 1;
 
                 document.getElementById('kpi-prev').innerText = formatearKPI(sumPrev / divisorPromedio, true);
@@ -385,17 +355,11 @@
                 document.getElementById('kpi-entrega').innerText = formatearKPI(sumEntrega / divisorPromedio, true);
                 document.getElementById('kpi-refacciones').innerText = formatearKPI(sumRefac / divisorPromedio, true);
                 document.getElementById('kpi-fallas').innerText = formatearKPI(sumFallas / divisorPromedio, true);
-                document.getElementById('kpi-ventas').innerText = sumVentas; // No es promedio, es suma total
-
+                document.getElementById('kpi-ventas').innerText = sumVentas; 
             } else {
-                 // Si no hay datos para el mes seleccionado
                  document.querySelectorAll('[id^="kpi-"]').forEach(el => el.innerText = el.id.includes('ventas') || el.id.includes('mttr') ? '0' : '0%');
             }
 
-
-            // ==========================================
-            // 2. RENDERIZAR TABLAS DINÁMICAS Y OPORTUNIDADES DESDE CORPUS
-            // ==========================================
             let datosFiltradosCorpus = datosDetalleOrdenes;
             if (filtroMes !== 'todos') {
                 datosFiltradosCorpus = datosDetalleOrdenes.filter(item => item.Mes === filtroMes);
@@ -405,7 +369,6 @@
             let countGarantia = 0, countContrato = 0, countFuera = 0, countPrueba = 0;
 
             datosFiltradosCorpus.forEach(d => {
-                // Conteo de Nuevos Indicadores de Estatus
                 if (d.estatus_seguimiento_limpio) {
                     if (d.estatus_seguimiento_limpio.includes('GARANTIA')) countGarantia++;
                     if (d.estatus_seguimiento_limpio.includes('CONTRATO')) countContrato++;
@@ -413,12 +376,9 @@
                     if (d.estatus_seguimiento_limpio.includes('PRUEBA') || d.estatus_seguimiento_limpio.includes('8 DIAS')) countPrueba++;
                 }
 
-                // Mapas de conteo para gráficas
-                // Ignore empty ingenieros
                 if(d.Ingeniero && d.Ingeniero !== 'Sin Asignar') {
                     cargaMap[d.Ingeniero] = (cargaMap[d.Ingeniero] || 0) + 1;
                 }
-                
                 if(d['Tipo de Servicio']) {
                     tiposMap[d['Tipo de Servicio']] = (tiposMap[d['Tipo de Servicio']] || 0) + 1;
                 }
@@ -426,15 +386,13 @@
                 marcasMap[d.Marca] = (marcasMap[d.Marca] || 0) + 1;
             });
 
-            // Actualizar el DOM de los nuevos indicadores
-            document.getElementById('ind-garantia').innerText = countGarantia;
-            document.getElementById('ind-contrato').innerText = countContrato;
-            document.getElementById('ind-fuera').innerText = countFuera;
-            document.getElementById('ind-prueba').innerText = countPrueba;
+            /* Seguro para evitar choques de JS si las tarjetas se llegan a borrar del HTML */
+            const elGarantia = document.getElementById('ind-garantia'); if(elGarantia) elGarantia.innerText = countGarantia;
+            const elContrato = document.getElementById('ind-contrato'); if(elContrato) elContrato.innerText = countContrato;
+            const elFuera = document.getElementById('ind-fuera'); if(elFuera) elFuera.innerText = countFuera;
+            const elPrueba = document.getElementById('ind-prueba'); if(elPrueba) elPrueba.innerText = countPrueba;
 
             actualizarGraficas(cargaMap, tiposMap, clientesMap, marcasMap);
-            
-            // Refrescar el modal si estuviese abierto
             configurarModalOportunidades(datosFiltradosCorpus);
         }
 
@@ -442,59 +400,40 @@
             Object.values(charts).forEach(c => { if (c) c.destroy(); });
             Chart.defaults.font.family = "'Inter', sans-serif";
 
-            // Helper to sort object by value and take top 10
             const toData = (objMap) => {
                 let arr = Object.entries(objMap).sort((a, b) => b[1] - a[1]).slice(0, 10);
                 return { labels: arr.map(i => i[0]), data: arr.map(i => i[1]) };
             };
 
-            // GRÁFICA: CARGA DE TRABAJO (Por Ingeniero) - Barras Horizontales
             const datosCarga = toData(carga);
             charts.carga = new Chart(document.getElementById('chartCargaTrabajo'), {
                 type: 'bar',
                 data: { labels: datosCarga.labels, datasets: [{ data: datosCarga.data, backgroundColor: '#14b8a6', borderRadius: 4 }] },
-                options: { 
-                    indexAxis: 'y', 
-                    responsive: true, 
-                    maintainAspectRatio: false, 
-                    plugins: { 
-                        legend: { display: false },
-                        datalabels: { display: false } // No mostramos los labels numéricos sobre las barras para mantenerlo limpio
-                    } 
-                }
+                options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, datalabels: { display: false } } }
             });
 
-            // GRÁFICA: DISTRIBUCIÓN POR TIPO DE SERVICIO - Dona con Porcentajes (Datalabels)
             charts.tipos = new Chart(document.getElementById('chartTipos'), {
                 type: 'doughnut',
                 data: { labels: Object.keys(tipos), datasets: [{ data: Object.values(tipos), backgroundColor: palette }] },
                 options: { 
-                    responsive: true, 
-                    maintainAspectRatio: false, 
-                    cutout: '50%', 
+                    responsive: true, maintainAspectRatio: false, cutout: '50%', 
                     plugins: { 
                         legend: { position: 'right' },
-                        // Configuración del plugin Datalabels para mostrar porcentajes
                         datalabels: {
-                            color: '#ffffff',
-                            font: { weight: 'bold' },
+                            color: '#ffffff', font: { weight: 'bold' },
                             formatter: (value, ctx) => {
                                 let datasets = ctx.chart.data.datasets;
                                 if (datasets.indexOf(ctx.dataset) === datasets.length - 1) {
-                                    let sum = 0;
-                                    datasets[0].data.map(data => { sum += data; });
+                                    let sum = 0; datasets[0].data.map(data => { sum += data; });
                                     let percentage = Math.round((value / sum) * 100) + '%';
                                     return percentage;
-                                } else {
-                                    return value;
-                                }
+                                } else return value;
                             }
                         }
                     } 
                 }
             });
 
-            // GRÁFICA: PRINCIPALES CLIENTES
             const datosCl = toData(clientes);
             charts.clientes = new Chart(document.getElementById('chartClientes'), {
                 type: 'bar',
@@ -502,7 +441,6 @@
                 options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, datalabels: { display: false } } }
             });
 
-            // GRÁFICA: PRINCIPALES MARCAS
             const datosMc = toData(marcas);
             charts.marcas = new Chart(document.getElementById('chartMarcas'), {
                 type: 'bar',
@@ -513,7 +451,6 @@
 
         function configurarModalOportunidades(datosFiltradosCorpus) {
             const btnCard = document.getElementById('card-ventas');
-            // Remove previous event listeners by replacing the node (cloning it)
             const newBtnCard = btnCard.cloneNode(true);
             btnCard.parentNode.replaceChild(newBtnCard, btnCard);
 
@@ -521,7 +458,6 @@
                 const tbody = document.getElementById('listaOportunidades');
                 tbody.innerHTML = '';
                 
-                // Buscar las oportunidades en los datos del Corpus filtrados por mes
                 const oportunidades = datosFiltradosCorpus.filter(d => d.oportunidad);
                 
                 if (oportunidades.length === 0) {
