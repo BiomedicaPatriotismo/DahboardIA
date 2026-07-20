@@ -5,10 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard de Mantenimiento y Servicio (Avanzado)</title>
     
-    <!-- Fuentes y librerías externas -->
+    <!-- Fuentes y librerías externas esenciales -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- ¡IMPORTANTE! Librería PapaParse para leer CSV sin errores -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     
     <!-- Configuración de Tailwind -->
     <script>
@@ -17,21 +19,8 @@
                 extend: {
                     fontFamily: { sans: ['Inter', 'sans-serif'] },
                     colors: {
-                        brand: {
-                            50: '#f0fdfa',
-                            100: '#ccfbf1',
-                            500: '#14b8a6',
-                            600: '#0d9488',
-                            900: '#134e4a',
-                        },
-                        kpi: {
-                            blue: '#3b82f6',
-                            red: '#ef4444',
-                            green: '#10b981',
-                            orange: '#f97316',
-                            purple: '#8b5cf6',
-                            yellow: '#eab308'
-                        }
+                        brand: { 50: '#f0fdfa', 100: '#ccfbf1', 500: '#14b8a6', 600: '#0d9488', 900: '#134e4a' },
+                        kpi: { blue: '#3b82f6', red: '#ef4444', green: '#10b981', orange: '#f97316', purple: '#8b5cf6' }
                     }
                 }
             }
@@ -44,12 +33,7 @@
             from { opacity: 0; transform: translateY(15px); }
             to { opacity: 1; transform: translateY(0); }
         }
-        .chart-wrapper {
-            position: relative;
-            height: 300px;
-            width: 100%;
-        }
-        /* Scrollbar estilizado para la tabla de filtros si crece mucho */
+        .chart-wrapper { position: relative; height: 300px; width: 100%; }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #f1f5f9; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
@@ -57,21 +41,27 @@
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen pb-12">
 
-    <!-- Mensaje de Error de Conexión (Oculto por defecto) -->
+    <!-- Mensaje de Carga y Error -->
+    <div id="loadingBanner" class="max-w-7xl mx-auto px-4 mt-6 fade-in">
+        <div class="bg-blue-50 border-l-4 border-blue-500 text-blue-700 p-4 rounded-xl shadow-sm flex items-center">
+            <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+            <p class="font-bold">Conectando con Google Sheets y descargando datos...</p>
+        </div>
+    </div>
+
     <div id="errorBanner" class="hidden max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 fade-in">
         <div class="bg-red-50 border-l-4 border-red-500 text-red-700 p-4 rounded-xl shadow-sm">
             <div class="flex items-center">
                 <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                <p class="font-bold text-lg">Atención: Error al conectar con Google Sheets</p>
+                <p class="font-bold text-lg">Error al cargar información</p>
             </div>
-            <p id="errorTexto" class="mt-2 font-medium">No se pudo cargar la hoja. Revisa el enlace.</p>
+            <p id="errorTexto" class="mt-2 font-medium">Revisa la consola (F12) para más detalles.</p>
         </div>
     </div>
 
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" id="dashboardContent" style="display: none;">
         
-        <!-- Encabezado y Filtros -->
-        <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 bg-white p-6 rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)] border border-slate-100 fade-in">
+        <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 bg-white p-6 rounded-2xl shadow-sm border border-slate-100 fade-in">
             <div class="mb-4 lg:mb-0">
                 <h1 class="text-3xl font-bold text-slate-900 tracking-tight">Métricas Operativas</h1>
                 <p class="text-sm text-slate-500 mt-1">Análisis de rendimiento, cargas de trabajo y oportunidades</p>
@@ -79,43 +69,44 @@
             
             <div class="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
                 <div class="relative w-full sm:w-56">
-                    <select id="monthFilter" class="appearance-none bg-slate-50 border border-slate-200 text-slate-900 text-sm font-medium rounded-xl focus:ring-brand-500 focus:border-brand-500 block w-full p-3 pr-10 shadow-sm transition-colors cursor-pointer outline-none">
-                        <option value="todos">Cargando meses...</option>
+                    <select id="monthFilter" class="appearance-none bg-slate-50 border border-slate-200 text-slate-900 text-sm font-medium rounded-xl focus:ring-brand-500 focus:border-brand-500 block w-full p-3 pr-10 cursor-pointer outline-none">
+                        <option value="todos">Todos los meses (Anual)</option>
+                        <option value="enero">Enero</option>
+                        <option value="febrero">Febrero</option>
+                        <option value="marzo">Marzo</option>
+                        <option value="abril">Abril</option>
+                        <option value="mayo">Mayo</option>
+                        <option value="junio">Junio</option>
+                        <option value="julio">Julio</option>
+                        <option value="agosto">Agosto</option>
+                        <option value="septiembre">Septiembre</option>
+                        <option value="octubre">Octubre</option>
+                        <option value="noviembre">Noviembre</option>
+                        <option value="diciembre">Diciembre</option>
                     </select>
-                    <!-- Flecha personalizada para el select -->
                     <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-500">
                         <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                     </div>
                 </div>
-                
-                <button id="btnAnual" class="bg-slate-900 hover:bg-slate-800 text-white font-semibold py-3 px-6 rounded-xl shadow-sm transition-all duration-200 flex items-center justify-center gap-2 w-full sm:w-auto">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                <button id="btnAnual" class="bg-slate-900 hover:bg-slate-800 text-white font-semibold py-3 px-6 rounded-xl shadow-sm transition-all duration-200 flex items-center justify-center gap-2">
                     Ver Todo el Año
                 </button>
             </div>
         </div>
 
-        <!-- Tarjetas de KPIs (7 Métricas) -->
-        <h2 class="text-lg font-bold text-slate-800 mb-4 px-2 fade-in" style="animation-delay: 0.1s;">Indicadores Clave de Rendimiento</h2>
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10 fade-in" style="animation-delay: 0.2s;">
+        <h2 class="text-lg font-bold text-slate-800 mb-4 px-2">Indicadores Clave de Rendimiento</h2>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
             
-            <!-- KPI: Ratio Preventivo -->
             <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between">
                 <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-2">Ratio Preventivo</div>
-                <div class="flex items-end gap-2">
-                    <div class="text-3xl font-bold text-kpi-blue" id="kpi-prev">0%</div>
-                </div>
+                <div class="text-3xl font-bold text-kpi-blue" id="kpi-prev">0%</div>
             </div>
 
-            <!-- KPI: Ratio Correctivo -->
             <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between">
                 <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-2">Ratio Correctivo</div>
-                <div class="flex items-end gap-2">
-                    <div class="text-3xl font-bold text-kpi-orange" id="kpi-corr">0%</div>
-                </div>
+                <div class="text-3xl font-bold text-kpi-orange" id="kpi-corr">0%</div>
             </div>
 
-            <!-- KPI: MTTR -->
             <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between">
                 <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-2">MTTR Promedio</div>
                 <div class="flex items-end gap-2">
@@ -124,23 +115,16 @@
                 </div>
             </div>
 
-            <!-- KPI: Tasa de Entrega -->
             <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between">
                 <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-2">Tasa de Entrega</div>
-                <div class="flex items-end gap-2">
-                    <div class="text-3xl font-bold text-kpi-green" id="kpi-entrega">0%</div>
-                </div>
+                <div class="text-3xl font-bold text-kpi-green" id="kpi-entrega">0%</div>
             </div>
 
-            <!-- KPI: Tasa de Refacciones -->
             <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between">
                 <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-2">Tasa Refacciones</div>
-                <div class="flex items-end gap-2">
-                    <div class="text-3xl font-bold text-slate-800" id="kpi-refacciones">0%</div>
-                </div>
+                <div class="text-3xl font-bold text-slate-800" id="kpi-refacciones">0%</div>
             </div>
 
-            <!-- KPI: Fallas Críticas -->
             <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between">
                 <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-2">Fallas Críticas</div>
                 <div class="flex items-end gap-2">
@@ -149,61 +133,44 @@
                 </div>
             </div>
 
-            <!-- KPI: Oportunidades de Venta -->
             <div id="card-ventas" class="bg-white rounded-2xl p-5 shadow-sm border border-brand-100 flex flex-col justify-between md:col-span-2 cursor-pointer hover:shadow-md hover:border-brand-400 transition-all group">
                 <div class="flex justify-between items-start mb-2">
-                    <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider group-hover:text-brand-600 transition-colors">Oportunidades de Venta (Clic para ver detalle)</div>
-                    <svg class="w-4 h-4 text-slate-400 group-hover:text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                    <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider group-hover:text-brand-600 transition-colors">Oportunidades de Venta (Clic para Detalle)</div>
+                    <svg class="w-4 h-4 text-slate-400 group-hover:text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
                 </div>
                 <div class="flex items-end gap-2">
                     <div class="text-3xl font-bold text-kpi-purple" id="kpi-ventas">0</div>
-                    <span class="text-sm text-slate-500 font-medium mb-1">cotizaciones potenciales</span>
+                    <span class="text-sm text-slate-500 font-medium mb-1">cotizaciones detectadas</span>
                 </div>
             </div>
         </div>
 
-        <!-- Sección de Gráficas -->
-        <h2 class="text-lg font-bold text-slate-800 mb-4 px-2 fade-in" style="animation-delay: 0.3s;">Análisis Dinámico</h2>
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 fade-in" style="animation-delay: 0.4s;">
-            
-            <!-- Gráfica: Carga de Trabajo -->
+        <h2 class="text-lg font-bold text-slate-800 mb-4 px-2">Análisis Dinámico (Tablas Dinámicas)</h2>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
             <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-                <h3 class="text-base font-bold text-slate-800 mb-4">Carga de Trabajo (Atenciones por Ingeniero)</h3>
-                <div class="chart-wrapper">
-                    <canvas id="chartCargaTrabajo"></canvas>
-                </div>
+                <h3 class="text-base font-bold text-slate-800 mb-4">Carga de Trabajo (Por Ingeniero)</h3>
+                <div class="chart-wrapper"><canvas id="chartCargaTrabajo"></canvas></div>
             </div>
 
-            <!-- Gráfica: Distribución por Tipo de Servicio -->
             <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
                 <h3 class="text-base font-bold text-slate-800 mb-4">Distribución por Tipo de Servicio</h3>
-                <div class="chart-wrapper">
-                    <canvas id="chartTipos"></canvas>
-                </div>
+                <div class="chart-wrapper"><canvas id="chartTipos"></canvas></div>
             </div>
 
-            <!-- Gráfica: Principales Clientes -->
             <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-                <h3 class="text-base font-bold text-slate-800 mb-4">Principales Clientes (Volumen de Servicios)</h3>
-                <div class="chart-wrapper">
-                    <canvas id="chartClientes"></canvas>
-                </div>
+                <h3 class="text-base font-bold text-slate-800 mb-4">Principales Clientes</h3>
+                <div class="chart-wrapper"><canvas id="chartClientes"></canvas></div>
             </div>
 
-            <!-- Gráfica: Principales Marcas -->
             <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-                <h3 class="text-base font-bold text-slate-800 mb-4">Principales Marcas Atendidas</h3>
-                <div class="chart-wrapper">
-                    <canvas id="chartMarcas"></canvas>
-                </div>
+                <h3 class="text-base font-bold text-slate-800 mb-4">Principales Marcas</h3>
+                <div class="chart-wrapper"><canvas id="chartMarcas"></canvas></div>
             </div>
-
         </div>
     </div>
 
-    <!-- Modal Oportunidades de Venta -->
     <div id="modalOportunidades" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden flex items-center justify-center z-50 fade-in">
-        <div class="bg-white rounded-2xl w-11/12 max-w-4xl max-h-[85vh] overflow-hidden shadow-2xl flex flex-col">
+        <div class="bg-white rounded-2xl w-11/12 max-w-5xl max-h-[85vh] overflow-hidden shadow-2xl flex flex-col">
             <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
                 <h3 class="text-lg font-bold text-slate-800">Detalle de Oportunidades de Venta</h3>
                 <button id="cerrarModal" class="text-slate-400 hover:text-slate-600 focus:outline-none bg-white rounded-full p-1 shadow-sm transition-colors hover:bg-slate-100">
@@ -211,24 +178,25 @@
                 </button>
             </div>
             <div class="p-6 overflow-y-auto flex-1 bg-slate-50/50">
-                <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+                <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
                     <table class="min-w-full divide-y divide-slate-200">
                         <thead class="bg-slate-50">
                             <tr>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Orden de Servicio (ID)</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Cliente</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Equipo</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Ingeniero a cargo</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Orden (ID)</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Cliente / Unidad</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Equipo</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Ingeniero</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Motivo</th>
                             </tr>
                         </thead>
                         <tbody id="listaOportunidades" class="divide-y divide-slate-100 text-sm text-slate-700 bg-white">
-                            <!-- Inyectado via JS -->
+                            <!-- Datos Inyectados con JS -->
                         </tbody>
                     </table>
                 </div>
                 <div id="noOportunidades" class="text-center py-10 text-slate-500 hidden flex flex-col items-center">
                     <svg class="w-12 h-12 text-slate-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path></svg>
-                    <p>No hay oportunidades de venta detectadas en los filtros actuales.</p>
+                    <p>No hay oportunidades de venta detectadas en este periodo.</p>
                 </div>
             </div>
         </div>
@@ -237,101 +205,95 @@
     <script>
         let charts = { carga: null, tipos: null, clientes: null, marcas: null };
         let datosCompletos = [];
-        let datosActuales = []; 
-        const palette = ['#3b82f6', '#14b8a6', '#f59e0b', '#ef4444', '#8b5cf6', '#64748b', '#0ea5e9'];
+        let datosActuales = [];
+        const palette = ['#14b8a6', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444', '#64748b', '#0ea5e9'];
 
-        function mostrarError(mensaje) {
-            const banner = document.getElementById('errorBanner');
-            document.getElementById('errorTexto').innerText = mensaje;
-            banner.classList.remove('hidden');
-        }
-
-        // El enlace a tu archivo ya configurado
-        const urlOriginal = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTX8QjDtAKXCfIUI4Uc2FENvOfBh-XCoxjBGWiTxRkqHQ3YjnvY3TnZf7FqJsn2o3yAyhV0ge78nJea/pub?gid=570492353&single=true&output=csv';
+        // ENLACE REAL Y DEFINITIVO DE GOOGLE SHEETS
+        const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTX8QjDtAKXCfIUI4Uc2FENvOfBh-XCoxjBGWiTxRkqHQ3YjnvY3TnZf7FqJsn2o3yAyhV0ge78nJea/pub?gid=570492353&single=true&output=csv';
 
         async function cargarDatos() {
             try {
-                // Agregar un timestamp para que Google Sheets no entregue datos viejos guardados en caché
-                const fetchUrl = urlOriginal + '&t=' + new Date().getTime();
+                // Hacemos el Fetch manual para evitar problemas de CORS o caché
+                const respuesta = await fetch(csvUrl + '&t=' + new Date().getTime());
+                
+                if (!respuesta.ok) throw new Error("Fallo en la red al descargar el documento.");
+                const csvTexto = await respuesta.text();
 
-                // Procesamiento blindado mediante PapaParse
-                Papa.parse(fetchUrl, {
-                    download: true,
+                // Procesamos el texto robustamente con PapaParse
+                Papa.parse(csvTexto, {
                     header: true,
                     skipEmptyLines: true,
                     complete: function(results) {
                         if (results.errors.length > 0 && results.data.length === 0) {
-                            mostrarError("Error leyendo el documento CSV.");
+                            mostrarError("No se pudieron interpretar las columnas del Excel.");
                             return;
                         }
                         procesarDatos(results.data);
-                    },
-                    error: function(err) {
-                        mostrarError("No se pudo conectar con el servidor de Google Sheets.");
                     }
                 });
             } catch (error) {
-                mostrarError("Ocurrió un fallo técnico al inicializar el dashboard.");
+                console.error("Detalle del Error:", error);
+                mostrarError("Error de Conexión: " + error.message);
             }
+        }
+
+        function mostrarError(mensaje) {
+            document.getElementById('loadingBanner').style.display = 'none';
+            document.getElementById('errorBanner').classList.remove('hidden');
+            document.getElementById('errorTexto').innerText = mensaje;
         }
 
         function procesarDatos(data) {
             datosCompletos = [];
             
-            // Función para estandarizar las columnas y que no fallen por acentos o mayúsculas
-            const normalizeKey = (key) => {
-                if (!key) return '';
-                return key.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, '');
-            };
+            // Función para limpiar nombres de columnas
+            const normKey = (k) => k ? k.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, '') : '';
 
             data.forEach(row => {
-                let obj = {};
                 let rowNorm = {};
-                for (let key in row) {
-                    rowNorm[normalizeKey(key)] = row[key] ? row[key].trim() : '';
-                }
+                for (let key in row) rowNorm[normKey(key)] = (row[key] || '').trim();
                 
-                // Mapeo Inteligente basado en tu CSV
+                // Mapeo adaptado a los encabezados de tu archivo Corpus
+                let obj = {};
                 obj['Mes'] = (rowNorm['mes'] || '').toLowerCase();
                 obj['ID'] = rowNorm['idunico'] || rowNorm['submissionid'] || 'S/N';
-                obj['Ingeniero'] = rowNorm['ingenierodeservicio'] || rowNorm['ingeniero'] || 'Sin Asignar';
-                obj['Equipo'] = rowNorm['equipo'] || 'Sin Equipo';
+                obj['Ingeniero'] = row['INGENIERO DE SERVICIO'] || rowNorm['ingenierodeservicio'] || 'Sin Asignar';
+                obj['Equipo'] = row['EQUIPO:'] || rowNorm['equipo'] || 'Sin Equipo';
                 obj['MTTR'] = Number(rowNorm['mttr']) || 0;
-                obj['Tipo de Servicio'] = rowNorm['tipodeservicioomantenimiento'] || rowNorm['tipodeservicio'] || 'No Definido';
-                obj['Cliente'] = rowNorm['unidad'] || rowNorm['cliente'] || 'Sin Cliente';
-                obj['Marca'] = rowNorm['marca'] || 'Sin Marca';
+                obj['Tipo de Servicio'] = row['TIPO DE SERVICIO O MANTENIMIENTO'] || rowNorm['tipodeservicioomantenimiento'] || '';
+                obj['Cliente'] = row['UNIDAD:'] || row['CLIENTE'] || rowNorm['unidad'] || 'Sin Cliente';
+                obj['Marca'] = row['MARCA:'] || rowNorm['marca'] || 'Sin Marca';
 
-                // Cálculo de KPIs
-                obj['fallas_criticas'] = Number(rowNorm['fallascriticas']) || ((rowNorm['equipofalloconpaciente'] || '').toLowerCase() === 'si' ? 1 : 0);
-                obj['ratio_preventivo'] = Number(rowNorm['ratiopreventivo']) || (obj['Tipo de Servicio'].toUpperCase().includes('PREVENTIVO') ? 100 : 0);
-                obj['ratio_corectivo'] = Number(rowNorm['ratiocorrectivo']) || ((obj['Tipo de Servicio'].toUpperCase().includes('CORRECTIVO') || rowNorm['clasificaciondelareparacion']) ? 100 : 0);
-                obj['tasa_entrega'] = Number(rowNorm['tasaentrega']) || ((rowNorm['5operatividadaptoparapaciente'] || '').toLowerCase() === 'si' ? 100 : 0);
-                obj['tasa_refacciones'] = Number(rowNorm['tasarefacciones']) || ((rowNorm['4cambioderefacciones'] || '').toLowerCase().includes('si') ? 100 : 0);
+                // Cálculo Analítico de KPIs
+                const esFallaConPaciente = (row['¿EQUIPO FALLÓ CON PACIENTE?'] || '').toLowerCase();
+                obj['fallas_criticas'] = (esFallaConPaciente === 'si' || esFallaConPaciente === 'sí') ? 1 : 0;
                 
-                // Oportunidades de Venta
-                let esOportunidad = false;
-                let txtOportunidad = (rowNorm['escribauna'] || rowNorm['observaciones'] || '').toUpperCase();
-                if (txtOportunidad.includes('COTIZACI') || txtOportunidad.includes('COTIZAR') || txtOportunidad.includes('MILLON')) esOportunidad = true;
-                obj['oportunidades_venta'] = Number(rowNorm['oportunidadesventa']) || (esOportunidad ? 1 : 0);
+                const tipoUpp = obj['Tipo de Servicio'].toUpperCase();
+                obj['es_preventivo'] = tipoUpp.includes('PREVENTIVO') ? 1 : 0;
+                obj['es_correctivo'] = tipoUpp.includes('CORRECTIVO') || rowNorm['clasificaciondelareparacion'] ? 1 : 0;
 
-                // Guardar la fila solo si es válida
-                if (obj['Mes'] || obj['ID'] !== 'S/N') datosCompletos.push(obj);
+                const aptoPaciente = (row['5.- OPERATIVIDAD: APTO PARA PACIENTE'] || '').toLowerCase();
+                obj['tasa_entrega_val'] = aptoPaciente.includes('si') || aptoPaciente.includes('sí') ? 1 : 0;
+
+                const refacciones = (row['4.- CAMBIO DE REFACCIONES'] || '').toLowerCase();
+                obj['tasa_refacciones_val'] = (refacciones.includes('si') || refacciones.includes('proporcionad')) ? 1 : 0;
+
+                // Oportunidades de Venta (Motivos Cotización, Garantía, etc.)
+                let nota = (row['EscribaUna'] || row['OBSERVACIONES:'] || '').toUpperCase();
+                obj['oportunidad'] = false;
+                obj['motivo_venta'] = '';
+                if (nota.includes('COTIZA') || nota.includes('MILLON') || nota.includes('VENTA')) {
+                    obj['oportunidad'] = true;
+                    obj['motivo_venta'] = nota;
+                }
+
+                // Filtrar registros válidos
+                if (obj['Mes'] && obj['ID'] !== 'S/N') datosCompletos.push(obj);
             });
 
-            document.getElementById('errorBanner').classList.add('hidden');
-            inicializarFiltros();
+            document.getElementById('loadingBanner').style.display = 'none';
+            document.getElementById('dashboardContent').style.display = 'block';
             renderizarDashboard('todos');
-        }
-
-        function inicializarFiltros() {
-            const select = document.getElementById('monthFilter');
-            select.innerHTML = '<option value="todos">Todos los meses (Anual)</option>';
-            
-            // Forzamos la visualización de los 12 meses como se solicitó
-            const meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
-            meses.forEach(m => {
-                select.innerHTML += `<option value="${m}">${m.charAt(0).toUpperCase() + m.slice(1)}</option>`;
-            });
         }
 
         function renderizarDashboard(filtroMes) {
@@ -341,88 +303,85 @@
             }
             datosActuales = datosFiltrados;
 
-            if(datosFiltrados.length === 0) {
-                // Si no hay datos, setear en 0 sin errores
-                document.querySelectorAll('[id^="kpi-"]').forEach(el => {
-                    el.innerText = (el.id.includes('fallas') || el.id.includes('ventas') || el.id.includes('mttr')) ? '0' : '0%';
-                });
-                actualizarGraficas({}, {}, {}, {}, filtroMes);
+            let total = datosFiltrados.length;
+            if(total === 0) {
+                document.querySelectorAll('[id^="kpi-"]').forEach(el => el.innerText = el.id.includes('fallas') || el.id.includes('ventas') || el.id.includes('mttr') ? '0' : '0%');
+                actualizarGraficas({}, {}, {}, {});
                 return; 
             }
 
-            let sumMTTR = 0, sumFallas = 0, sumPrev = 0, sumCorr = 0, sumEntrega = 0, sumRefacciones = 0, sumVentas = 0;
-            let count = datosFiltrados.length;
-            let cargaTrabajoMap = {}, tiposMap = {}, clientesMap = {}, marcasMap = {};
+            let sumMTTR = 0, sumFallas = 0, sumPrev = 0, sumCorr = 0, sumEntrega = 0, sumRefac = 0, sumVentas = 0;
+            let cargaMap = {}, tiposMap = {}, clientesMap = {}, marcasMap = {};
 
             datosFiltrados.forEach(d => {
-                sumMTTR += d.MTTR; sumFallas += d.fallas_criticas; sumPrev += d.ratio_preventivo;
-                sumCorr += d.ratio_corectivo; sumEntrega += d.tasa_entrega; sumRefacciones += d.tasa_refacciones;
-                sumVentas += d.oportunidades_venta;
+                sumMTTR += d.MTTR; 
+                sumFallas += d.fallas_criticas;
+                sumPrev += d.es_preventivo;
+                sumCorr += d.es_correctivo;
+                sumEntrega += d.tasa_entrega_val;
+                sumRefac += d.tasa_refacciones_val;
+                if(d.oportunidad) sumVentas++;
 
-                cargaTrabajoMap[d.Ingeniero] = (cargaTrabajoMap[d.Ingeniero] || 0) + 1;
-                tiposMap[d.Tipo de Servicio] = (tiposMap[d.Tipo de Servicio] || 0) + 1;
+                cargaMap[d.Ingeniero] = (cargaMap[d.Ingeniero] || 0) + 1;
+                if(d['Tipo de Servicio']) tiposMap[d['Tipo de Servicio']] = (tiposMap[d['Tipo de Servicio']] || 0) + 1;
                 clientesMap[d.Cliente] = (clientesMap[d.Cliente] || 0) + 1;
                 marcasMap[d.Marca] = (marcasMap[d.Marca] || 0) + 1;
             });
 
-            document.getElementById('kpi-mttr').innerText = (sumMTTR / count).toFixed(1);
-            document.getElementById('kpi-prev').innerText = (sumPrev / count).toFixed(1) + '%';
-            document.getElementById('kpi-corr').innerText = (sumCorr / count).toFixed(1) + '%';
-            document.getElementById('kpi-entrega').innerText = (sumEntrega / count).toFixed(1) + '%';
-            document.getElementById('kpi-refacciones').innerText = (sumRefacciones / count).toFixed(1) + '%';
+            // Asignar al HTML
+            document.getElementById('kpi-mttr').innerText = (sumMTTR / total).toFixed(1);
+            document.getElementById('kpi-prev').innerText = ((sumPrev / total) * 100).toFixed(1) + '%';
+            document.getElementById('kpi-corr').innerText = ((sumCorr / total) * 100).toFixed(1) + '%';
+            document.getElementById('kpi-entrega').innerText = ((sumEntrega / total) * 100).toFixed(1) + '%';
+            document.getElementById('kpi-refacciones').innerText = ((sumRefac / total) * 100).toFixed(1) + '%';
             document.getElementById('kpi-fallas').innerText = sumFallas;
             document.getElementById('kpi-ventas').innerText = sumVentas;
 
-            actualizarGraficas(cargaTrabajoMap, tiposMap, clientesMap, marcasMap, filtroMes);
+            actualizarGraficas(cargaMap, tiposMap, clientesMap, marcasMap);
         }
 
-        function actualizarGraficas(cargaMap, tiposMap, clientesMap, marcasMap, filtroMes) {
-            Object.values(charts).forEach(chart => { if (chart) chart.destroy(); });
-
+        function actualizarGraficas(carga, tipos, clientes, marcas) {
+            Object.values(charts).forEach(c => { if (c) c.destroy(); });
             Chart.defaults.font.family = "'Inter', sans-serif";
-            const ordenarDatos = (objMap) => {
+
+            const toData = (objMap) => {
                 let arr = Object.entries(objMap).sort((a, b) => b[1] - a[1]).slice(0, 10);
                 return { labels: arr.map(i => i[0]), data: arr.map(i => i[1]) };
             };
 
-            // 1. Carga de Trabajo (Ahora por INGENIERO)
-            const datosCarga = ordenarDatos(cargaMap);
-            charts.carga = new Chart(document.getElementById('chartCargaTrabajo').getContext('2d'), {
+            const datosCarga = toData(carga);
+            charts.carga = new Chart(document.getElementById('chartCargaTrabajo'), {
                 type: 'bar',
-                data: { labels: datosCarga.labels, datasets: [{ label: 'Atenciones', data: datosCarga.data, backgroundColor: '#14b8a6', borderRadius: 4 }] },
+                data: { labels: datosCarga.labels, datasets: [{ data: datosCarga.data, backgroundColor: '#14b8a6', borderRadius: 4 }] },
                 options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
             });
 
-            // 2. Tipos de Servicio
-            charts.tipos = new Chart(document.getElementById('chartTipos').getContext('2d'), {
+            charts.tipos = new Chart(document.getElementById('chartTipos'), {
                 type: 'doughnut',
-                data: { labels: Object.keys(tiposMap), datasets: [{ data: Object.values(tiposMap), backgroundColor: palette }] },
+                data: { labels: Object.keys(tipos), datasets: [{ data: Object.values(tipos), backgroundColor: palette }] },
                 options: { responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: { legend: { position: 'right' } } }
             });
 
-            // 3. Clientes
-            const datosClientes = ordenarDatos(clientesMap);
-            charts.clientes = new Chart(document.getElementById('chartClientes').getContext('2d'), {
+            const datosCl = toData(clientes);
+            charts.clientes = new Chart(document.getElementById('chartClientes'), {
                 type: 'bar',
-                data: { labels: datosClientes.labels, datasets: [{ label: 'Servicios', data: datosClientes.data, backgroundColor: '#3b82f6', borderRadius: 4 }] },
+                data: { labels: datosCl.labels, datasets: [{ data: datosCl.data, backgroundColor: '#3b82f6', borderRadius: 4 }] },
                 options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
             });
 
-            // 4. Marcas
-            const datosMarcas = ordenarDatos(marcasMap);
-            charts.marcas = new Chart(document.getElementById('chartMarcas').getContext('2d'), {
+            const datosMc = toData(marcas);
+            charts.marcas = new Chart(document.getElementById('chartMarcas'), {
                 type: 'bar',
-                data: { labels: datosMarcas.labels, datasets: [{ label: 'Equipos', data: datosMarcas.data, backgroundColor: '#8b5cf6', borderRadius: 4 }] },
+                data: { labels: datosMc.labels, datasets: [{ data: datosMc.data, backgroundColor: '#8b5cf6', borderRadius: 4 }] },
                 options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
             });
         }
 
-        // Interacción Modal
         document.getElementById('card-ventas').addEventListener('click', () => {
             const tbody = document.getElementById('listaOportunidades');
             tbody.innerHTML = '';
             
-            const oportunidades = datosActuales.filter(d => d.oportunidades_venta > 0);
+            const oportunidades = datosActuales.filter(d => d.oportunidad);
             
             if (oportunidades.length === 0) {
                 document.getElementById('noOportunidades').classList.remove('hidden');
@@ -433,12 +392,13 @@
                 
                 oportunidades.forEach(op => {
                     const tr = document.createElement('tr');
-                    tr.classList.add('hover:bg-slate-50');
+                    tr.classList.add('hover:bg-slate-50', 'transition-colors');
                     tr.innerHTML = `
-                        <td class="px-4 py-3 font-bold text-brand-600">ID: ${op.ID}</td>
-                        <td class="px-4 py-3">${op.Cliente}</td>
+                        <td class="px-4 py-3 font-bold text-brand-600 whitespace-nowrap">${op.ID}</td>
+                        <td class="px-4 py-3 text-slate-800 font-medium">${op.Cliente}</td>
                         <td class="px-4 py-3 text-slate-500">${op.Equipo}</td>
                         <td class="px-4 py-3"><span class="bg-slate-100 text-slate-600 px-2 py-1 rounded-md text-xs font-bold border border-slate-200">${op.Ingeniero}</span></td>
+                        <td class="px-4 py-3 text-xs text-slate-500 italic max-w-xs truncate" title="${op.motivo_venta}">${op.motivo_venta}</td>
                     `;
                     tbody.appendChild(tr);
                 });
@@ -449,6 +409,7 @@
         document.getElementById('cerrarModal').addEventListener('click', () => {
             document.getElementById('modalOportunidades').classList.add('hidden');
         });
+        
         document.getElementById('monthFilter').addEventListener('change', (e) => renderizarDashboard(e.target.value));
         document.getElementById('btnAnual').addEventListener('click', () => {
             document.getElementById('monthFilter').value = 'todos';
