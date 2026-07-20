@@ -9,6 +9,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Librería para DataLabels (Porcentajes en pie chart) -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
     <!-- ¡IMPORTANTE! Librería PapaParse para leer CSV sin errores -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     
@@ -71,6 +73,7 @@
                 <div class="relative w-full sm:w-56">
                     <select id="monthFilter" class="appearance-none bg-slate-50 border border-slate-200 text-slate-900 text-sm font-medium rounded-xl focus:ring-brand-500 focus:border-brand-500 block w-full p-3 pr-10 cursor-pointer outline-none">
                         <option value="todos">Todos los meses (Anual)</option>
+                        <!-- Los meses se generarán dinámicamente o se forzarán -->
                         <option value="enero">Enero</option>
                         <option value="febrero">Febrero</option>
                         <option value="marzo">Marzo</option>
@@ -94,7 +97,7 @@
             </div>
         </div>
 
-        <h2 class="text-lg font-bold text-slate-800 mb-4 px-2">Indicadores Clave de Rendimiento</h2>
+        <h2 class="text-lg font-bold text-slate-800 mb-4 px-2">Indicadores Clave de Rendimiento (KPIs)</h2>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
             
             <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between">
@@ -127,10 +130,7 @@
 
             <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between">
                 <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-2">Fallas Críticas</div>
-                <div class="flex items-end gap-2">
-                    <div class="text-3xl font-bold text-kpi-red" id="kpi-fallas">0</div>
-                    <span class="text-sm text-slate-500 font-medium mb-1">eventos</span>
-                </div>
+                <div class="text-3xl font-bold text-kpi-red" id="kpi-fallas">0%</div>
             </div>
 
             <div id="card-ventas" class="bg-white rounded-2xl p-5 shadow-sm border border-brand-100 flex flex-col justify-between md:col-span-2 cursor-pointer hover:shadow-md hover:border-brand-400 transition-all group">
@@ -169,6 +169,7 @@
         </div>
     </div>
 
+    <!-- Modal para Oportunidades de Venta -->
     <div id="modalOportunidades" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden flex items-center justify-center z-50 fade-in">
         <div class="bg-white rounded-2xl w-11/12 max-w-5xl max-h-[85vh] overflow-hidden shadow-2xl flex flex-col">
             <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
@@ -203,37 +204,70 @@
     </div>
 
     <script>
+        // Registrar el plugin DataLabels
+        Chart.register(ChartDataLabels);
+
         let charts = { carga: null, tipos: null, clientes: null, marcas: null };
-        let datosCompletos = [];
-        let datosActuales = [];
+        
+        // Estructuras para guardar los datos leídos
+        let datosAgrupadosPorMes = []; // Leerá de la pestaña 'Data_Dashboard'
+        let datosDetalleOrdenes = [];  // Leerá del archivo Corpus (Orden de trabajo) para Tablas dinámicas y Oportunidades
+
         const palette = ['#14b8a6', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444', '#64748b', '#0ea5e9'];
 
-        // ENLACE REAL Y DEFINITIVO DE GOOGLE SHEETS
-        const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTX8QjDtAKXCfIUI4Uc2FENvOfBh-XCoxjBGWiTxRkqHQ3YjnvY3TnZf7FqJsn2o3yAyhV0ge78nJea/pub?gid=570492353&single=true&output=csv';
-
+        // URLs a tus dos fuentes de datos (asumiendo que las publicas como CSV)
+        // 1. Pestaña "Data_Dashboard" (para los KPIs mensuales y anuales agregados)
+        const csvUrlDashboard = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTX8QjDtAKXCfIUI4Uc2FENvOfBh-XCoxjBGWiTxRkqHQ3YjnvY3TnZf7FqJsn2o3yAyhV0ge78nJea/pub?gid=570492353&single=true&output=csv';
+        
+        // 2. Archivo completo "Orden de Trabajo" (para las tablas dinámicas y desglose de ingenieros/oportunidades)
+        // Usaremos el GID principal (gid=0) que usualmente es "Form responses".
+        const csvUrlCorpus = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTX8QjDtAKXCfIUI4Uc2FENvOfBh-XCoxjBGWiTxRkqHQ3YjnvY3TnZf7FqJsn2o3yAyhV0ge78nJea/pub?gid=0&single=true&output=csv';
+        
         async function cargarDatos() {
             try {
-                // Hacemos el Fetch manual para evitar problemas de CORS o caché
-                const respuesta = await fetch(csvUrl + '&t=' + new Date().getTime());
-                
-                if (!respuesta.ok) throw new Error("Fallo en la red al descargar el documento.");
-                const csvTexto = await respuesta.text();
+                // Descargar ambos CSV en paralelo
+                const [respDashboard, respCorpus] = await Promise.all([
+                    fetch(csvUrlDashboard + '&t=' + new Date().getTime()),
+                    fetch(csvUrlCorpus + '&t=' + new Date().getTime())
+                ]);
 
-                // Procesamos el texto robustamente con PapaParse
-                Papa.parse(csvTexto, {
+                if (!respDashboard.ok || !respCorpus.ok) throw new Error("Fallo en la red al descargar los documentos.");
+
+                const csvTextoDashboard = await respDashboard.text();
+                const csvTextoCorpus = await respCorpus.text();
+
+                // Procesar la hoja de "Data_Dashboard" usando PapaParse
+                Papa.parse(csvTextoDashboard, {
                     header: true,
                     skipEmptyLines: true,
+                    // transformHeader normaliza los nombres de columna: minúsculas y sin espacios a los lados
+                    transformHeader: function(h) { return h.trim().toLowerCase(); },
                     complete: function(results) {
-                        if (results.errors.length > 0 && results.data.length === 0) {
-                            mostrarError("No se pudieron interpretar las columnas del Excel.");
-                            return;
-                        }
-                        procesarDatos(results.data);
+                        datosAgrupadosPorMes = results.data;
                     }
                 });
+
+                // Procesar la hoja Corpus ("Orden de trabajo")
+                Papa.parse(csvTextoCorpus, {
+                    header: true,
+                    skipEmptyLines: true,
+                    // transformHeader unifica las mayúsculas y quita espacios
+                    transformHeader: function(h) { return h.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""); },
+                    complete: function(results) {
+                        procesarDatosCorpus(results.data);
+                    }
+                });
+
+                // Pequeña espera para asegurar que ambas promesas asíncronas de PapaParse concluyan
+                setTimeout(() => {
+                    document.getElementById('loadingBanner').style.display = 'none';
+                    document.getElementById('dashboardContent').style.display = 'block';
+                    renderizarDashboard('todos'); 
+                }, 500);
+
             } catch (error) {
                 console.error("Detalle del Error:", error);
-                mostrarError("Error de Conexión: " + error.message);
+                mostrarError("Error de Conexión: " + error.message + ". Verifica que los enlaces estén publicados en la web como CSV.");
             }
         }
 
@@ -243,168 +277,240 @@
             document.getElementById('errorTexto').innerText = mensaje;
         }
 
-        function procesarDatos(data) {
-            datosCompletos = [];
+        // Esta función procesa los datos detallados de "Orden de trabajo"
+        function procesarDatosCorpus(data) {
+            datosDetalleOrdenes = [];
             
-            // Función para limpiar nombres de columnas
-            const normKey = (k) => k ? k.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, '') : '';
-
             data.forEach(row => {
-                let rowNorm = {};
-                for (let key in row) rowNorm[normKey(key)] = (row[key] || '').trim();
-                
-                // Mapeo adaptado a los encabezados de tu archivo Corpus
                 let obj = {};
-                obj['Mes'] = (rowNorm['mes'] || '').toLowerCase();
-                obj['ID'] = rowNorm['idunico'] || rowNorm['submissionid'] || 'S/N';
-                obj['Ingeniero'] = row['INGENIERO DE SERVICIO'] || rowNorm['ingenierodeservicio'] || 'Sin Asignar';
-                obj['Equipo'] = row['EQUIPO:'] || rowNorm['equipo'] || 'Sin Equipo';
-                obj['MTTR'] = Number(rowNorm['mttr']) || 0;
-                obj['Tipo de Servicio'] = row['TIPO DE SERVICIO O MANTENIMIENTO'] || rowNorm['tipodeservicioomantenimiento'] || '';
-                obj['Cliente'] = row['UNIDAD:'] || row['CLIENTE'] || rowNorm['unidad'] || 'Sin Cliente';
-                obj['Marca'] = row['MARCA:'] || rowNorm['marca'] || 'Sin Marca';
-
-                // Cálculo Analítico de KPIs
-                const esFallaConPaciente = (row['¿EQUIPO FALLÓ CON PACIENTE?'] || '').toLowerCase();
-                obj['fallas_criticas'] = (esFallaConPaciente === 'si' || esFallaConPaciente === 'sí') ? 1 : 0;
                 
-                const tipoUpp = obj['Tipo de Servicio'].toUpperCase();
-                obj['es_preventivo'] = tipoUpp.includes('PREVENTIVO') ? 1 : 0;
-                obj['es_correctivo'] = tipoUpp.includes('CORRECTIVO') || rowNorm['clasificaciondelareparacion'] ? 1 : 0;
+                // Mapeo adaptado a las columnas del Corpus document
+                obj['Mes'] = (row['mes'] || '').toLowerCase().trim();
+                // Usa ID único o Submission ID como respaldo
+                obj['ID'] = row['id unico'] || row['submission id'] || row['idunico'] || 'S/N';
+                
+                // Manejar posibles variaciones de nombres de columnas por PapaParse
+                obj['Ingeniero'] = row['ingeniero de servicio'] || 'Sin Asignar';
+                obj['Equipo'] = row['equipo:'] || row['equipo'] || 'Sin Equipo';
+                obj['Tipo de Servicio'] = row['tipo de servicio o mantenimiento'] || '';
+                obj['Cliente'] = row['unidad:'] || row['unidad'] || row['cliente'] || 'Sin Cliente';
+                obj['Marca'] = row['marca:'] || row['marca'] || 'Sin Marca';
 
-                const aptoPaciente = (row['5.- OPERATIVIDAD: APTO PARA PACIENTE'] || '').toLowerCase();
-                obj['tasa_entrega_val'] = aptoPaciente.includes('si') || aptoPaciente.includes('sí') ? 1 : 0;
-
-                const refacciones = (row['4.- CAMBIO DE REFACCIONES'] || '').toLowerCase();
-                obj['tasa_refacciones_val'] = (refacciones.includes('si') || refacciones.includes('proporcionad')) ? 1 : 0;
-
-                // Oportunidades de Venta (Motivos Cotización, Garantía, etc.)
-                let nota = (row['EscribaUna'] || row['OBSERVACIONES:'] || '').toUpperCase();
+                // Lógica de Oportunidades de Venta (Motivos Cotización, Garantía, etc.)
+                let nota = (row['escribauna'] || row['observaciones:'] || row['observaciones'] || '').toUpperCase();
                 obj['oportunidad'] = false;
                 obj['motivo_venta'] = '';
-                if (nota.includes('COTIZA') || nota.includes('MILLON') || nota.includes('VENTA')) {
+                if (nota.includes('COTIZA') || nota.includes('MILLON') || nota.includes('VENTA') || nota.includes('GARANTÍA')) {
                     obj['oportunidad'] = true;
                     obj['motivo_venta'] = nota;
                 }
 
-                // Filtrar registros válidos
-                if (obj['Mes'] && obj['ID'] !== 'S/N') datosCompletos.push(obj);
+                // Guardar si tiene un ID válido o mes
+                if (obj['Mes']) datosDetalleOrdenes.push(obj);
             });
-
-            document.getElementById('loadingBanner').style.display = 'none';
-            document.getElementById('dashboardContent').style.display = 'block';
-            renderizarDashboard('todos');
         }
 
+        // Función auxiliar para convertir valores de porcentaje en strings (ej. "80.00%") a números (ej. 80.0)
+        const parsePercent = (val) => {
+            if (!val) return 0;
+            if (typeof val === 'number') return val;
+            let num = parseFloat(val.replace(/%/g, '').trim());
+            return isNaN(num) ? 0 : num;
+        };
+
+        // Función auxiliar para formatear los números a un estilo uniforme (con el símbolo %)
+        const formatearKPI = (valor, esPorcentaje = false) => {
+             if (esPorcentaje) return valor.toFixed(1) + '%';
+             return valor.toFixed(1); // Para casos como MTTR o Fallas críticas si no son porcentajes
+        };
+
         function renderizarDashboard(filtroMes) {
-            let datosFiltrados = datosCompletos;
-            if (filtroMes !== 'todos') {
-                datosFiltrados = datosCompletos.filter(item => item.Mes === filtroMes);
-            }
-            datosActuales = datosFiltrados;
-
-            let total = datosFiltrados.length;
-            if(total === 0) {
-                document.querySelectorAll('[id^="kpi-"]').forEach(el => el.innerText = el.id.includes('fallas') || el.id.includes('ventas') || el.id.includes('mttr') ? '0' : '0%');
-                actualizarGraficas({}, {}, {}, {});
-                return; 
-            }
-
+            // ==========================================
+            // 1. RENDERIZAR KPIs desde Data_Dashboard
+            // ==========================================
             let sumMTTR = 0, sumFallas = 0, sumPrev = 0, sumCorr = 0, sumEntrega = 0, sumRefac = 0, sumVentas = 0;
+            let kpiTotalItems = 0;
+
+            let datosFiltradosKPI = datosAgrupadosPorMes;
+            if (filtroMes !== 'todos') {
+                datosFiltradosKPI = datosAgrupadosPorMes.filter(item => (item.mes || '').toLowerCase().trim() === filtroMes);
+            }
+
+            if (datosFiltradosKPI.length > 0) {
+                datosFiltradosKPI.forEach(d => {
+                    // Validamos la información contra las columnas descritas en tu imagen ("mes", "fallas_criticas", etc.)
+                    // Sumamos los valores para luego sacar un promedio en caso de la vista "Anual" (todos los meses)
+                    sumPrev += parsePercent(d.ratio_preventivo);
+                    sumCorr += parsePercent(d.ratio_corectivo || d.ratio_correctivo); // manejar error de tipeo en hoja
+                    sumMTTR += Number(d.mttr) || 0;
+                    sumEntrega += parsePercent(d.tasa_entrega);
+                    sumRefac += parsePercent(d.tasa_refacciones);
+                    
+                    // Fallas críticas parece venir como porcentaje en tu screenshot (ej 80.00%). Lo trataremos como tal
+                    sumFallas += parsePercent(d.fallas_criticas);
+                    
+                    // Oportunidades de venta parece ser un número entero.
+                    sumVentas += parseInt(d.oportunidades_venta) || 0;
+                    
+                    kpiTotalItems++;
+                });
+
+                // Si se selecciona un mes específico, el promedio es solo el valor del mes. Si es anual, es el promedio de todos los meses con datos.
+                let divisorPromedio = filtroMes === 'todos' ? kpiTotalItems : 1;
+
+                document.getElementById('kpi-prev').innerText = formatearKPI(sumPrev / divisorPromedio, true);
+                document.getElementById('kpi-corr').innerText = formatearKPI(sumCorr / divisorPromedio, true);
+                document.getElementById('kpi-mttr').innerText = formatearKPI(sumMTTR / divisorPromedio, false);
+                document.getElementById('kpi-entrega').innerText = formatearKPI(sumEntrega / divisorPromedio, true);
+                document.getElementById('kpi-refacciones').innerText = formatearKPI(sumRefac / divisorPromedio, true);
+                document.getElementById('kpi-fallas').innerText = formatearKPI(sumFallas / divisorPromedio, true);
+                document.getElementById('kpi-ventas').innerText = sumVentas; // No es promedio, es suma total
+
+            } else {
+                 // Si no hay datos para el mes seleccionado
+                 document.querySelectorAll('[id^="kpi-"]').forEach(el => el.innerText = el.id.includes('ventas') || el.id.includes('mttr') ? '0' : '0%');
+            }
+
+
+            // ==========================================
+            // 2. RENDERIZAR TABLAS DINÁMICAS Y OPORTUNIDADES DESDE CORPUS
+            // ==========================================
+            let datosFiltradosCorpus = datosDetalleOrdenes;
+            if (filtroMes !== 'todos') {
+                datosFiltradosCorpus = datosDetalleOrdenes.filter(item => item.Mes === filtroMes);
+            }
+
             let cargaMap = {}, tiposMap = {}, clientesMap = {}, marcasMap = {};
 
-            datosFiltrados.forEach(d => {
-                sumMTTR += d.MTTR; 
-                sumFallas += d.fallas_criticas;
-                sumPrev += d.es_preventivo;
-                sumCorr += d.es_correctivo;
-                sumEntrega += d.tasa_entrega_val;
-                sumRefac += d.tasa_refacciones_val;
-                if(d.oportunidad) sumVentas++;
-
-                cargaMap[d.Ingeniero] = (cargaMap[d.Ingeniero] || 0) + 1;
-                if(d['Tipo de Servicio']) tiposMap[d['Tipo de Servicio']] = (tiposMap[d['Tipo de Servicio']] || 0) + 1;
+            datosFiltradosCorpus.forEach(d => {
+                // Mapas de conteo para gráficas
+                // Ignore empty ingenieros
+                if(d.Ingeniero && d.Ingeniero !== 'Sin Asignar') {
+                    cargaMap[d.Ingeniero] = (cargaMap[d.Ingeniero] || 0) + 1;
+                }
+                
+                if(d['Tipo de Servicio']) {
+                    tiposMap[d['Tipo de Servicio']] = (tiposMap[d['Tipo de Servicio']] || 0) + 1;
+                }
                 clientesMap[d.Cliente] = (clientesMap[d.Cliente] || 0) + 1;
                 marcasMap[d.Marca] = (marcasMap[d.Marca] || 0) + 1;
             });
 
-            // Asignar al HTML
-            document.getElementById('kpi-mttr').innerText = (sumMTTR / total).toFixed(1);
-            document.getElementById('kpi-prev').innerText = ((sumPrev / total) * 100).toFixed(1) + '%';
-            document.getElementById('kpi-corr').innerText = ((sumCorr / total) * 100).toFixed(1) + '%';
-            document.getElementById('kpi-entrega').innerText = ((sumEntrega / total) * 100).toFixed(1) + '%';
-            document.getElementById('kpi-refacciones').innerText = ((sumRefac / total) * 100).toFixed(1) + '%';
-            document.getElementById('kpi-fallas').innerText = sumFallas;
-            document.getElementById('kpi-ventas').innerText = sumVentas;
-
             actualizarGraficas(cargaMap, tiposMap, clientesMap, marcasMap);
+            
+            // Refrescar el modal si estuviese abierto
+            configurarModalOportunidades(datosFiltradosCorpus);
         }
 
         function actualizarGraficas(carga, tipos, clientes, marcas) {
             Object.values(charts).forEach(c => { if (c) c.destroy(); });
             Chart.defaults.font.family = "'Inter', sans-serif";
 
+            // Helper to sort object by value and take top 10
             const toData = (objMap) => {
                 let arr = Object.entries(objMap).sort((a, b) => b[1] - a[1]).slice(0, 10);
                 return { labels: arr.map(i => i[0]), data: arr.map(i => i[1]) };
             };
 
+            // GRÁFICA: CARGA DE TRABAJO (Por Ingeniero) - Barras Horizontales
             const datosCarga = toData(carga);
             charts.carga = new Chart(document.getElementById('chartCargaTrabajo'), {
                 type: 'bar',
                 data: { labels: datosCarga.labels, datasets: [{ data: datosCarga.data, backgroundColor: '#14b8a6', borderRadius: 4 }] },
-                options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+                options: { 
+                    indexAxis: 'y', 
+                    responsive: true, 
+                    maintainAspectRatio: false, 
+                    plugins: { 
+                        legend: { display: false },
+                        datalabels: { display: false } // No mostramos los labels numéricos sobre las barras para mantenerlo limpio
+                    } 
+                }
             });
 
+            // GRÁFICA: DISTRIBUCIÓN POR TIPO DE SERVICIO - Dona con Porcentajes (Datalabels)
             charts.tipos = new Chart(document.getElementById('chartTipos'), {
                 type: 'doughnut',
                 data: { labels: Object.keys(tipos), datasets: [{ data: Object.values(tipos), backgroundColor: palette }] },
-                options: { responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: { legend: { position: 'right' } } }
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false, 
+                    cutout: '50%', 
+                    plugins: { 
+                        legend: { position: 'right' },
+                        // Configuración del plugin Datalabels para mostrar porcentajes
+                        datalabels: {
+                            color: '#ffffff',
+                            font: { weight: 'bold' },
+                            formatter: (value, ctx) => {
+                                let datasets = ctx.chart.data.datasets;
+                                if (datasets.indexOf(ctx.dataset) === datasets.length - 1) {
+                                    let sum = 0;
+                                    datasets[0].data.map(data => { sum += data; });
+                                    let percentage = Math.round((value / sum) * 100) + '%';
+                                    return percentage;
+                                } else {
+                                    return value;
+                                }
+                            }
+                        }
+                    } 
+                }
             });
 
+            // GRÁFICA: PRINCIPALES CLIENTES
             const datosCl = toData(clientes);
             charts.clientes = new Chart(document.getElementById('chartClientes'), {
                 type: 'bar',
                 data: { labels: datosCl.labels, datasets: [{ data: datosCl.data, backgroundColor: '#3b82f6', borderRadius: 4 }] },
-                options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+                options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, datalabels: { display: false } } }
             });
 
+            // GRÁFICA: PRINCIPALES MARCAS
             const datosMc = toData(marcas);
             charts.marcas = new Chart(document.getElementById('chartMarcas'), {
                 type: 'bar',
                 data: { labels: datosMc.labels, datasets: [{ data: datosMc.data, backgroundColor: '#8b5cf6', borderRadius: 4 }] },
-                options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+                options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, datalabels: { display: false } } }
             });
         }
 
-        document.getElementById('card-ventas').addEventListener('click', () => {
-            const tbody = document.getElementById('listaOportunidades');
-            tbody.innerHTML = '';
-            
-            const oportunidades = datosActuales.filter(d => d.oportunidad);
-            
-            if (oportunidades.length === 0) {
-                document.getElementById('noOportunidades').classList.remove('hidden');
-                tbody.parentElement.classList.add('hidden');
-            } else {
-                document.getElementById('noOportunidades').classList.add('hidden');
-                tbody.parentElement.classList.remove('hidden');
+        function configurarModalOportunidades(datosFiltradosCorpus) {
+            const btnCard = document.getElementById('card-ventas');
+            // Remove previous event listeners by replacing the node (cloning it)
+            const newBtnCard = btnCard.cloneNode(true);
+            btnCard.parentNode.replaceChild(newBtnCard, btnCard);
+
+            newBtnCard.addEventListener('click', () => {
+                const tbody = document.getElementById('listaOportunidades');
+                tbody.innerHTML = '';
                 
-                oportunidades.forEach(op => {
-                    const tr = document.createElement('tr');
-                    tr.classList.add('hover:bg-slate-50', 'transition-colors');
-                    tr.innerHTML = `
-                        <td class="px-4 py-3 font-bold text-brand-600 whitespace-nowrap">${op.ID}</td>
-                        <td class="px-4 py-3 text-slate-800 font-medium">${op.Cliente}</td>
-                        <td class="px-4 py-3 text-slate-500">${op.Equipo}</td>
-                        <td class="px-4 py-3"><span class="bg-slate-100 text-slate-600 px-2 py-1 rounded-md text-xs font-bold border border-slate-200">${op.Ingeniero}</span></td>
-                        <td class="px-4 py-3 text-xs text-slate-500 italic max-w-xs truncate" title="${op.motivo_venta}">${op.motivo_venta}</td>
-                    `;
-                    tbody.appendChild(tr);
-                });
-            }
-            document.getElementById('modalOportunidades').classList.remove('hidden');
-        });
+                // Buscar las oportunidades en los datos del Corpus filtrados por mes
+                const oportunidades = datosFiltradosCorpus.filter(d => d.oportunidad);
+                
+                if (oportunidades.length === 0) {
+                    document.getElementById('noOportunidades').classList.remove('hidden');
+                    tbody.parentElement.classList.add('hidden');
+                } else {
+                    document.getElementById('noOportunidades').classList.add('hidden');
+                    tbody.parentElement.classList.remove('hidden');
+                    
+                    oportunidades.forEach(op => {
+                        const tr = document.createElement('tr');
+                        tr.classList.add('hover:bg-slate-50', 'transition-colors');
+                        tr.innerHTML = `
+                            <td class="px-4 py-3 font-bold text-brand-600 whitespace-nowrap">${op.ID}</td>
+                            <td class="px-4 py-3 text-slate-800 font-medium">${op.Cliente}</td>
+                            <td class="px-4 py-3 text-slate-500">${op.Equipo}</td>
+                            <td class="px-4 py-3"><span class="bg-slate-100 text-slate-600 px-2 py-1 rounded-md text-xs font-bold border border-slate-200">${op.Ingeniero}</span></td>
+                            <td class="px-4 py-3 text-xs text-slate-500 italic max-w-xs truncate" title="${op.motivo_venta}">${op.motivo_venta}</td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                }
+                document.getElementById('modalOportunidades').classList.remove('hidden');
+            });
+        }
 
         document.getElementById('cerrarModal').addEventListener('click', () => {
             document.getElementById('modalOportunidades').classList.add('hidden');
