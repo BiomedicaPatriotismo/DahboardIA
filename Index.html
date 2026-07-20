@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard de Métricas Operativas</title>
+    <!-- Importar Chart.js para las gráficas -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #3498db;
+            --bg-color: #f8f9fa;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 20px;
+            color: var(--primary-color);
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .controls {
+            display: flex;
+            gap: 15px;
+        }
+        select, button {
+            padding: 10px 15px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 14px;
+            outline: none;
+        }
+        button {
+            background-color: var(--secondary-color);
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+        }
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .card h3 {
+            margin-top: 0;
+            text-align: center;
+            color: var(--primary-color);
+        }
+        /* Contenedor responsivo para las gráficas */
+        .chart-container {
+            position: relative;
+            height: 300px;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h2>Dashboard de Servicio y Mantenimiento</h2>
+        <div class="controls">
+            <select id="monthFilter">
+                <option value="todos">Seleccionar Mes...</option>
+                <option value="enero">Enero</option>
+                <option value="febrero">Febrero</option>
+                <option value="marzo">Marzo</option>
+                <option value="abril">Abril</option>
+                <!-- Añade el resto de los meses según necesites -->
+            </select>
+            <button id="btnAnual">Mostrar Acumulado Anual</button>
+        </div>
+    </div>
+
+    <div class="grid-container">
+        <!-- Gráfica 1: Tipos de Servicio -->
+        <div class="card">
+            <h3>Distribución por Tipo de Servicio</h3>
+            <div class="chart-container">
+                <canvas id="chartServicios"></canvas>
+            </div>
+        </div>
+        
+        <!-- Gráfica 2: MTTR Promedio -->
+        <div class="card">
+            <h3>MTTR Promedio (Minutos)</h3>
+            <div class="chart-container">
+                <canvas id="chartMTTR"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 1. Variables globales para las instancias de las gráficas
+        let chartServicios, chartMTTR;
+
+        // 2. Simulación de datos extraídos de Google Sheets (Data_Dashboard)
+        // Aquí es donde conectarás tu CSV publicado. Por ahora usamos datos simulados basados en tu estructura.
+        const datosBase = [
+            { mes: 'febrero', tipo: 'PREVENTIVO', mttr: 0 },
+            { mes: 'febrero', tipo: 'PREVENTIVO CALIBRACIÓN', mttr: 144 },
+            { mes: 'marzo', tipo: 'PREVENTIVO CALIBRACIÓN', mttr: 0 },
+            { mes: 'marzo', tipo: 'PREVENTIVO', mttr: 0 },
+            { mes: 'marzo', tipo: 'CURSO DE CAPACITACIÓN', mttr: 0 }
+        ];
+
+        // 3. Función para inicializar o actualizar las gráficas
+        function renderizarDashboard(mesFiltro) {
+            // Filtrar datos según la selección
+            const datosFiltrados = mesFiltro === 'anual' || mesFiltro === 'todos' 
+                ? datosBase 
+                : datosBase.filter(d => d.mes.toLowerCase() === mesFiltro.toLowerCase());
+
+            // --- PROCESAMIENTO PARA GRÁFICA DE SERVICIOS ---
+            const conteoServicios = datosFiltrados.reduce((acc, curr) => {
+                acc[curr.tipo] = (acc[curr.tipo] || 0) + 1;
+                return acc;
+            }, {});
+
+            // --- PROCESAMIENTO PARA GRÁFICA MTTR (Promedio por Mes) ---
+            const mttrPorMes = datosFiltrados.reduce((acc, curr) => {
+                if (!acc[curr.mes]) acc[curr.mes] = { suma: 0, count: 0 };
+                acc[curr.mes].suma += Number(curr.mttr);
+                acc[curr.mes].count += 1;
+                return acc;
+            }, {});
+            
+            const etiquetasMeses = Object.keys(mttrPorMes);
+            const promediosMTTR = etiquetasMeses.map(mes => mttrPorMes[mes].suma / mttrPorMes[mes].count);
+
+            // Destruir gráficas previas si existen para evitar superposición en el Canvas
+            if (chartServicios) chartServicios.destroy();
+            if (chartMTTR) chartMTTR.destroy();
+
+            // Renderizar Gráfica de Servicios (Doughnut)
+            const ctxServicios = document.getElementById('chartServicios').getContext('2d');
+            chartServicios = new Chart(ctxServicios, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(conteoServicios),
+                    datasets: [{
+                        data: Object.values(conteoServicios),
+                        backgroundColor: ['#3498db', '#2ecc71', '#f1c40f', '#e74c3c'],
+                        borderWidth: 1
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+
+            // Renderizar Gráfica MTTR (Barras)
+            const ctxMTTR = document.getElementById('chartMTTR').getContext('2d');
+            chartMTTR = new Chart(ctxMTTR, {
+                type: 'bar',
+                data: {
+                    labels: etiquetasMeses,
+                    datasets: [{
+                        label: 'MTTR Promedio',
+                        data: promediosMTTR,
+                        backgroundColor: '#9b59b6',
+                        borderRadius: 4
+                    }]
+                },
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false,
+                    scales: { y: { beginAtZero: true } }
+                }
+            });
+        }
+
+        // 4. Listeners para los botones y filtros
+        document.getElementById('monthFilter').addEventListener('change', function(e) {
+            const mesSeleccionado = e.target.value;
+            if(mesSeleccionado !== 'todos') {
+                renderizarDashboard(mesSeleccionado);
+            }
+        });
+
+        document.getElementById('btnAnual').addEventListener('click', function() {
+            // Reiniciar el select
+            document.getElementById('monthFilter').value = 'todos';
+            renderizarDashboard('anual');
+        });
+
+        // 5. Carga inicial del dashboard
+        window.onload = () => renderizarDashboard('anual');
+    </script>
+</body>
+</html>
