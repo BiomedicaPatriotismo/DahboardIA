@@ -215,10 +215,10 @@
                     <table class="min-w-full divide-y divide-slate-200">
                         <thead class="bg-slate-50">
                             <tr>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Orden / ID</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Orden de Servicio (ID)</th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Cliente</th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Equipo</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Ingeniero</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Ingeniero a cargo</th>
                             </tr>
                         </thead>
                         <tbody id="listaOportunidades" class="divide-y divide-slate-100 text-sm text-slate-700 bg-white">
@@ -235,443 +235,227 @@
     </div>
 
     <script>
-        // Variables globales para las instancias de Chart.js
-        let charts = {
-            carga: null,
-            tipos: null,
-            clientes: null,
-            marcas: null
-        };
-        
+        let charts = { carga: null, tipos: null, clientes: null, marcas: null };
         let datosCompletos = [];
-        let datosActuales = []; // NUEVO: Guarda el estado de los datos filtrados en pantalla
-
-        // Colores consistentes y modernos
+        let datosActuales = []; 
         const palette = ['#3b82f6', '#14b8a6', '#f59e0b', '#ef4444', '#8b5cf6', '#64748b', '#0ea5e9'];
 
         function mostrarError(mensaje) {
             const banner = document.getElementById('errorBanner');
-            const texto = document.getElementById('errorTexto');
-            texto.innerText = mensaje;
+            document.getElementById('errorTexto').innerText = mensaje;
             banner.classList.remove('hidden');
         }
 
-        // =====================================================================
-        // DATOS MOCK: Estructura simulada actualizada
-        // =====================================================================
-        const datosMock = [
-            { "Mes": "enero", "ID": "5000", "Ingeniero": "Erick Serrano", "Equipo": "Monitor", "MTTR": "120", "fallas_criticas": "2", "ratio_preventivo": "70", "ratio_corectivo": "30", "tasa_entrega": "95", "tasa_refacciones": "15", "oportunidades_venta": "4", "Tipo de Servicio": "PREVENTIVO", "Cliente": "Hospital San Ángel Inn", "Marca": "Philips" },
-            { "Mes": "enero", "ID": "5001", "Ingeniero": "Omar Gonzalez", "Equipo": "Ventilador", "MTTR": "45", "fallas_criticas": "0", "ratio_preventivo": "70", "ratio_corectivo": "30", "tasa_entrega": "95", "tasa_refacciones": "15", "oportunidades_venta": "1", "Tipo de Servicio": "CORRECTIVO", "Cliente": "Hospital IA", "Marca": "Mindray" },
-            { "Mes": "febrero", "ID": "5002", "Ingeniero": "Daniela Trejo", "Equipo": "Desfibrilador", "MTTR": "60", "fallas_criticas": "1", "ratio_preventivo": "85", "ratio_corectivo": "15", "tasa_entrega": "98", "tasa_refacciones": "5", "oportunidades_venta": "2", "Tipo de Servicio": "PREVENTIVO CALIBRACIÓN", "Cliente": "Ingenieros Asociados", "Marca": "GE" },
-            { "Mes": "febrero", "ID": "5003", "Ingeniero": "Omar Gonzalez", "Equipo": "Monitor", "MTTR": "0", "fallas_criticas": "0", "ratio_preventivo": "85", "ratio_corectivo": "15", "tasa_entrega": "98", "tasa_refacciones": "5", "oportunidades_venta": "0", "Tipo de Servicio": "PREVENTIVO", "Cliente": "Hospital San Ángel Inn", "Marca": "Philips" },
-            { "Mes": "marzo", "ID": "5004", "Ingeniero": "Erick Serrano", "Equipo": "Máquina de Anestesia", "MTTR": "180", "fallas_criticas": "3", "ratio_preventivo": "60", "ratio_corectivo": "40", "tasa_entrega": "85", "tasa_refacciones": "25", "oportunidades_venta": "5", "Tipo de Servicio": "CORRECTIVO", "Cliente": "Hospital General", "Marca": "Mindray" }
-        ];
-
-        function parseCSV(str) {
-            const arr = [];
-            let quote = false;
-            let row = 0, col = 0;
-            for (let c = 0; c < str.length; c++) {
-                let cc = str[c], nc = str[c+1];
-                arr[row] = arr[row] || [];
-                arr[row][col] = arr[row][col] || '';
-                if (cc === '"' && quote && nc === '"') { arr[row][col] += cc; ++c; continue; }
-                if (cc === '"') { quote = !quote; continue; }
-                if (cc === ',' && !quote) { ++col; continue; }
-                if (cc === '\r' && nc === '\n' && !quote) { ++row; col = 0; ++c; continue; }
-                if (cc === '\n' && !quote) { ++row; col = 0; continue; }
-                if (cc === '\r' && !quote) { ++row; col = 0; continue; }
-                arr[row][col] += cc;
-            }
-            return arr;
-        }
-
-        // Función para estandarizar nombres de columnas ignorando espacios, mayúsculas y acentos
-        function normalizeString(str) {
-            if(!str) return '';
-            return str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, '');
-        }
+        // El enlace a tu archivo ya configurado
+        const urlOriginal = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTX8QjDtAKXCfIUI4Uc2FENvOfBh-XCoxjBGWiTxRkqHQ3YjnvY3TnZf7FqJsn2o3yAyhV0ge78nJea/pub?gid=570492353&single=true&output=csv';
 
         async function cargarDatos() {
-            // =====================================================================
-            // INSTRUCCIÓN: PEGA TU ENLACE ENTRE LAS COMILLAS (Puede ser el enlace normal)
-            // =====================================================================
-            let urlOriginal = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTX8QjDtAKXCfIUI4Uc2FENvOfBh-XCoxjBGWiTxRkqHQ3YjnvY3TnZf7FqJsn2o3yAyhV0ge78nJea/pub?gid=570492353&single=true&output=csv'; 
-
-            if (!urlOriginal || urlOriginal.trim() === '') {
-                mostrarError("No se ha configurado ningún enlace válido de Google Sheets.");
-                return;
-            }
-
             try {
-                let fetchUrl = urlOriginal;
-                
-                // Conversión automática: Si el usuario pega el link de "Editar", lo convertimos a exportación
-                if (urlOriginal.includes('/edit') || urlOriginal.includes('/view')) {
-                    const matchId = urlOriginal.match(/\/d\/([a-zA-Z0-9-_]+)/);
-                    if (matchId) {
-                        const id = matchId[1];
-                        const matchGid = urlOriginal.match(/gid=([0-9]+)/);
-                        const gid = matchGid ? matchGid[1] : '0';
-                        fetchUrl = `https://docs.google.com/spreadsheets/d/${id}/export?format=csv&gid=${gid}`;
-                    }
-                }
+                // Agregar un timestamp para que Google Sheets no entregue datos viejos guardados en caché
+                const fetchUrl = urlOriginal + '&t=' + new Date().getTime();
 
-                const response = await fetch(fetchUrl);
-                if (!response.ok) throw new Error("Error de red al intentar descargar la hoja.");
-                
-                const text = await response.text();
-                
-                // Si la respuesta es una página HTML de Google, significa que la hoja NO es pública
-                if (text.trim().toLowerCase().startsWith('<!doctype html>') || text.toLowerCase().includes('<html')) {
-                    mostrarError("Acceso Denegado: Tu Google Sheet es privado. Ve a 'Compartir' en tu archivo y cambia el acceso a 'Cualquier persona con el enlace'.");
-                    return;
-                }
-
-                const lineas = parseCSV(text);
-                const headers = lineas[0];
-                
-                datosCompletos = [];
-                for(let i = 1; i < lineas.length; i++) {
-                    if(lineas[i].length <= 1) continue;
-                    // Ignorar filas que sean puras comas (vacías)
-                    if(lineas[i].join('').trim() === '') continue; 
-                    
-                    let obj = {};
-                    
-                    // Mapeo Inteligente (Lee las columnas originales de tu documento)
-                    headers.forEach((h, index) => {
-                        let headerLimpio = normalizeString(h);
-                        const valor = lineas[i][index] ? lineas[i][index].trim() : '';
-                        
-                        if(headerLimpio.includes('mes')) obj['Mes'] = valor.toLowerCase();
-                        else if(headerLimpio.includes('idunico') || headerLimpio.includes('submission')) obj['ID'] = valor;
-                        else if(headerLimpio.includes('ingenierodeservicio') || headerLimpio.includes('ingeniero')) obj['Ingeniero'] = valor;
-                        else if(headerLimpio === 'equipo' || (headerLimpio.includes('equipo') && !headerLimpio.includes('medicion') && !headerLimpio.includes('calibracion') && !headerLimpio.includes('fallo'))) obj['Equipo'] = valor;
-                        else if(headerLimpio.includes('mttr')) obj['MTTR'] = valor;
-                        
-                        // Si ya usaste las columnas calculadas explícitas
-                        else if(headerLimpio.includes('fallascriticas')) obj['fallas_criticas'] = valor;
-                        else if(headerLimpio.includes('ratiopreventivo')) obj['ratio_preventivo'] = valor;
-                        else if(headerLimpio.includes('ratiocorectivo') || headerLimpio.includes('ratiocorrectivo')) obj['ratio_corectivo'] = valor;
-                        else if(headerLimpio.includes('tasaentrega')) obj['tasa_entrega'] = valor;
-                        else if(headerLimpio.includes('tasarefacciones')) obj['tasa_refacciones'] = valor;
-                        else if(headerLimpio.includes('oportunidades') || headerLimpio.includes('venta')) obj['oportunidades_venta'] = valor;
-                        
-                        // Si la hoja no tiene los KPIs, guardamos las crudas para deducirlas
-                        else if(headerLimpio.includes('tipodeservicio')) obj['Tipo de Servicio'] = valor;
-                        else if(headerLimpio === 'unidad' || headerLimpio.includes('cliente')) obj['Cliente'] = valor;
-                        else if(headerLimpio.includes('marca')) obj['Marca'] = valor;
-                        else if(headerLimpio.includes('operatividadapto')) obj['AptoPaciente'] = valor;
-                        else if(headerLimpio.includes('cambioderefacciones')) obj['CambioRefacciones'] = valor;
-                        else if(headerLimpio.includes('equipofallo')) obj['FalloPaciente'] = valor;
-                        else if(headerLimpio.includes('observaciones')) obj['Observaciones'] = valor;
-                        else if(headerLimpio.includes('escribauna')) obj['Cotizacion'] = valor;
-                        else if(headerLimpio.includes('clasificaciondelareparacion')) obj['ClasificacionReparacion'] = valor;
-                    });
-
-                    // Auto-Cálculo de métricas basándose en las columnas originales si los KPIs no existen explícitamente
-                    if (obj['ratio_preventivo'] === undefined) {
-                        obj['ratio_preventivo'] = (obj['Tipo de Servicio'] && obj['Tipo de Servicio'].toUpperCase().includes('PREVENTIVO')) ? 100 : 0;
+                // Procesamiento blindado mediante PapaParse
+                Papa.parse(fetchUrl, {
+                    download: true,
+                    header: true,
+                    skipEmptyLines: true,
+                    complete: function(results) {
+                        if (results.errors.length > 0 && results.data.length === 0) {
+                            mostrarError("Error leyendo el documento CSV.");
+                            return;
+                        }
+                        procesarDatos(results.data);
+                    },
+                    error: function(err) {
+                        mostrarError("No se pudo conectar con el servidor de Google Sheets.");
                     }
-                    if (obj['ratio_corectivo'] === undefined) {
-                        obj['ratio_corectivo'] = ((obj['Tipo de Servicio'] && obj['Tipo de Servicio'].toUpperCase().includes('CORRECTIVO')) || (obj['ClasificacionReparacion'] && obj['ClasificacionReparacion'] !== '')) ? 100 : 0;
-                    }
-                    if (obj['fallas_criticas'] === undefined) {
-                        obj['fallas_criticas'] = (obj['FalloPaciente'] && obj['FalloPaciente'].toLowerCase() === 'si') ? 1 : 0;
-                    }
-                    if (obj['tasa_entrega'] === undefined) {
-                        obj['tasa_entrega'] = (obj['AptoPaciente'] && obj['AptoPaciente'].toLowerCase() === 'si') ? 100 : 0;
-                    }
-                    if (obj['tasa_refacciones'] === undefined) {
-                        obj['tasa_refacciones'] = (obj['CambioRefacciones'] && (obj['CambioRefacciones'].toLowerCase().includes('si') || obj['CambioRefacciones'].toLowerCase().includes('proporcionad'))) ? 100 : 0;
-                    }
-                    if (obj['oportunidades_venta'] === undefined) {
-                        let esOportunidad = false;
-                        if (obj['Cotizacion'] && obj['Cotizacion'].toUpperCase().includes('COTIZACI')) esOportunidad = true;
-                        if (obj['Observaciones'] && obj['Observaciones'].toUpperCase().includes('COTIZACI')) esOportunidad = true;
-                        obj['oportunidades_venta'] = esOportunidad ? 1 : 0;
-                    }
-
-                    datosCompletos.push(obj);
-                }
-
-                document.getElementById('errorBanner').classList.add('hidden'); // Ocultar error si funcionó
-                
-                inicializarFiltros();
-                renderizarDashboard('todos');
-
+                });
             } catch (error) {
-                console.error("Error cargando los datos:", error);
-                mostrarError("Ocurrió un fallo técnico al procesar el enlace. Verifica tu consola.");
+                mostrarError("Ocurrió un fallo técnico al inicializar el dashboard.");
             }
+        }
+
+        function procesarDatos(data) {
+            datosCompletos = [];
+            
+            // Función para estandarizar las columnas y que no fallen por acentos o mayúsculas
+            const normalizeKey = (key) => {
+                if (!key) return '';
+                return key.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, '');
+            };
+
+            data.forEach(row => {
+                let obj = {};
+                let rowNorm = {};
+                for (let key in row) {
+                    rowNorm[normalizeKey(key)] = row[key] ? row[key].trim() : '';
+                }
+                
+                // Mapeo Inteligente basado en tu CSV
+                obj['Mes'] = (rowNorm['mes'] || '').toLowerCase();
+                obj['ID'] = rowNorm['idunico'] || rowNorm['submissionid'] || 'S/N';
+                obj['Ingeniero'] = rowNorm['ingenierodeservicio'] || rowNorm['ingeniero'] || 'Sin Asignar';
+                obj['Equipo'] = rowNorm['equipo'] || 'Sin Equipo';
+                obj['MTTR'] = Number(rowNorm['mttr']) || 0;
+                obj['Tipo de Servicio'] = rowNorm['tipodeservicioomantenimiento'] || rowNorm['tipodeservicio'] || 'No Definido';
+                obj['Cliente'] = rowNorm['unidad'] || rowNorm['cliente'] || 'Sin Cliente';
+                obj['Marca'] = rowNorm['marca'] || 'Sin Marca';
+
+                // Cálculo de KPIs
+                obj['fallas_criticas'] = Number(rowNorm['fallascriticas']) || ((rowNorm['equipofalloconpaciente'] || '').toLowerCase() === 'si' ? 1 : 0);
+                obj['ratio_preventivo'] = Number(rowNorm['ratiopreventivo']) || (obj['Tipo de Servicio'].toUpperCase().includes('PREVENTIVO') ? 100 : 0);
+                obj['ratio_corectivo'] = Number(rowNorm['ratiocorrectivo']) || ((obj['Tipo de Servicio'].toUpperCase().includes('CORRECTIVO') || rowNorm['clasificaciondelareparacion']) ? 100 : 0);
+                obj['tasa_entrega'] = Number(rowNorm['tasaentrega']) || ((rowNorm['5operatividadaptoparapaciente'] || '').toLowerCase() === 'si' ? 100 : 0);
+                obj['tasa_refacciones'] = Number(rowNorm['tasarefacciones']) || ((rowNorm['4cambioderefacciones'] || '').toLowerCase().includes('si') ? 100 : 0);
+                
+                // Oportunidades de Venta
+                let esOportunidad = false;
+                let txtOportunidad = (rowNorm['escribauna'] || rowNorm['observaciones'] || '').toUpperCase();
+                if (txtOportunidad.includes('COTIZACI') || txtOportunidad.includes('COTIZAR') || txtOportunidad.includes('MILLON')) esOportunidad = true;
+                obj['oportunidades_venta'] = Number(rowNorm['oportunidadesventa']) || (esOportunidad ? 1 : 0);
+
+                // Guardar la fila solo si es válida
+                if (obj['Mes'] || obj['ID'] !== 'S/N') datosCompletos.push(obj);
+            });
+
+            document.getElementById('errorBanner').classList.add('hidden');
+            inicializarFiltros();
+            renderizarDashboard('todos');
         }
 
         function inicializarFiltros() {
             const select = document.getElementById('monthFilter');
             select.innerHTML = '<option value="todos">Todos los meses (Anual)</option>';
             
-            // Forzar el listado de los 12 meses siempre (independientemente si hay datos en ellos o no)
-            const ordenMeses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
-            
-            ordenMeses.forEach(mes => {
-                const mesCapitalizado = mes.charAt(0).toUpperCase() + mes.slice(1);
-                select.innerHTML += `<option value="${mes}">${mesCapitalizado}</option>`;
+            // Forzamos la visualización de los 12 meses como se solicitó
+            const meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+            meses.forEach(m => {
+                select.innerHTML += `<option value="${m}">${m.charAt(0).toUpperCase() + m.slice(1)}</option>`;
             });
         }
 
         function renderizarDashboard(filtroMes) {
-            
-            // Filtrado estricto pero seguro
             let datosFiltrados = datosCompletos;
             if (filtroMes !== 'todos') {
-                datosFiltrados = datosCompletos.filter(item => {
-                    const mesRow = item.Mes ? item.Mes.toString().trim().toLowerCase() : '';
-                    return mesRow === filtroMes;
-                });
+                datosFiltrados = datosCompletos.filter(item => item.Mes === filtroMes);
             }
-
-            // Actualizamos la variable global para que el modal sepa qué datos se están mostrando
             datosActuales = datosFiltrados;
 
             if(datosFiltrados.length === 0) {
-                // Limpiar contadores visuales si el mes está vacío
-                document.querySelectorAll('[id^="kpi-"]').forEach(el => el.innerText = '0');
+                // Si no hay datos, setear en 0 sin errores
+                document.querySelectorAll('[id^="kpi-"]').forEach(el => {
+                    el.innerText = (el.id.includes('fallas') || el.id.includes('ventas') || el.id.includes('mttr')) ? '0' : '0%';
+                });
                 actualizarGraficas({}, {}, {}, {}, filtroMes);
                 return; 
             }
 
-            // Variables para KPIs
             let sumMTTR = 0, sumFallas = 0, sumPrev = 0, sumCorr = 0, sumEntrega = 0, sumRefacciones = 0, sumVentas = 0;
             let count = datosFiltrados.length;
-            
-            // Variables para Gráficas (Acumuladores)
-            let cargaTrabajoMap = {}; // Servicios por mes
-            let tiposMap = {};
-            let clientesMap = {};
-            let marcasMap = {};
+            let cargaTrabajoMap = {}, tiposMap = {}, clientesMap = {}, marcasMap = {};
 
-            // Procesar fila por fila
             datosFiltrados.forEach(d => {
-                
-                // Sumas para promedios/totales numéricos (Convertimos strings a números de forma segura)
-                sumMTTR += Number(d.MTTR) || 0;
-                sumFallas += Number(d.fallas_criticas) || 0;
-                sumPrev += Number(d.ratio_preventivo) || 0;
-                sumCorr += Number(d.ratio_corectivo) || 0;
-                sumEntrega += Number(d.tasa_entrega) || 0;
-                sumRefacciones += Number(d.tasa_refacciones) || 0;
-                sumVentas += Number(d.oportunidades_venta) || 0;
+                sumMTTR += d.MTTR; sumFallas += d.fallas_criticas; sumPrev += d.ratio_preventivo;
+                sumCorr += d.ratio_corectivo; sumEntrega += d.tasa_entrega; sumRefacciones += d.tasa_refacciones;
+                sumVentas += d.oportunidades_venta;
 
-                // Agrupaciones para tablas dinámicas
-                const ingenieroRow = d.Ingeniero || 'No Asignado';
-                cargaTrabajoMap[ingenieroRow] = (cargaTrabajoMap[ingenieroRow] || 0) + 1;
-
-                const tipo = d['Tipo de Servicio'] || 'No Especificado';
-                tiposMap[tipo] = (tiposMap[tipo] || 0) + 1;
-
-                const cliente = d.Cliente || 'No Especificado';
-                clientesMap[cliente] = (clientesMap[cliente] || 0) + 1;
-
-                const marca = d.Marca || 'Otra';
-                marcasMap[marca] = (marcasMap[marca] || 0) + 1;
+                cargaTrabajoMap[d.Ingeniero] = (cargaTrabajoMap[d.Ingeniero] || 0) + 1;
+                tiposMap[d.Tipo de Servicio] = (tiposMap[d.Tipo de Servicio] || 0) + 1;
+                clientesMap[d.Cliente] = (clientesMap[d.Cliente] || 0) + 1;
+                marcasMap[d.Marca] = (marcasMap[d.Marca] || 0) + 1;
             });
 
-            // Actualizar DOM de KPIs (Promedios para tasas/ratios, sumas absolutas para fallas/ventas)
-            const kpiMTTR = count > 0 ? (sumMTTR / count).toFixed(1) : 0;
-            const kpiPrev = count > 0 ? (sumPrev / count).toFixed(1) : 0;
-            const kpiCorr = count > 0 ? (sumCorr / count).toFixed(1) : 0;
-            const kpiEntrega = count > 0 ? (sumEntrega / count).toFixed(1) : 0;
-            const kpiRef = count > 0 ? (sumRefacciones / count).toFixed(1) : 0;
-
-            document.getElementById('kpi-mttr').innerText = kpiMTTR;
-            document.getElementById('kpi-prev').innerText = kpiPrev + '%';
-            document.getElementById('kpi-corr').innerText = kpiCorr + '%';
-            document.getElementById('kpi-entrega').innerText = kpiEntrega + '%';
-            document.getElementById('kpi-refacciones').innerText = kpiRef + '%';
-            
-            // Estos son conteos absolutos
+            document.getElementById('kpi-mttr').innerText = (sumMTTR / count).toFixed(1);
+            document.getElementById('kpi-prev').innerText = (sumPrev / count).toFixed(1) + '%';
+            document.getElementById('kpi-corr').innerText = (sumCorr / count).toFixed(1) + '%';
+            document.getElementById('kpi-entrega').innerText = (sumEntrega / count).toFixed(1) + '%';
+            document.getElementById('kpi-refacciones').innerText = (sumRefacciones / count).toFixed(1) + '%';
             document.getElementById('kpi-fallas').innerText = sumFallas;
             document.getElementById('kpi-ventas').innerText = sumVentas;
 
-            // Renderizar Gráficas
             actualizarGraficas(cargaTrabajoMap, tiposMap, clientesMap, marcasMap, filtroMes);
         }
 
         function actualizarGraficas(cargaMap, tiposMap, clientesMap, marcasMap, filtroMes) {
-            
-            // Destruir previas
             Object.values(charts).forEach(chart => { if (chart) chart.destroy(); });
 
             Chart.defaults.font.family = "'Inter', sans-serif";
-            Chart.defaults.color = '#64748b';
-            Chart.defaults.plugins.tooltip.padding = 10;
-            Chart.defaults.plugins.tooltip.cornerRadius = 8;
-
-            // Función Helper para ordenar datos (mayor a menor) para gráficas de barras
             const ordenarDatos = (objMap) => {
-                let arrayDeArrays = Object.entries(objMap);
-                arrayDeArrays.sort((a, b) => b[1] - a[1]); // Orden descendente
-                arrayDeArrays = arrayDeArrays.slice(0, 10); // Tomar máximo el Top 10
-                return {
-                    labels: arrayDeArrays.map(item => item[0]),
-                    data: arrayDeArrays.map(item => item[1])
-                };
+                let arr = Object.entries(objMap).sort((a, b) => b[1] - a[1]).slice(0, 10);
+                return { labels: arr.map(i => i[0]), data: arr.map(i => i[1]) };
             };
 
-            // 1. Carga de Trabajo (Barra Horizontal por Ingeniero)
-            const datosCargaOrd = ordenarDatos(cargaMap);
-            const ctxCarga = document.getElementById('chartCargaTrabajo').getContext('2d');
-            charts.carga = new Chart(ctxCarga, {
+            // 1. Carga de Trabajo (Ahora por INGENIERO)
+            const datosCarga = ordenarDatos(cargaMap);
+            charts.carga = new Chart(document.getElementById('chartCargaTrabajo').getContext('2d'), {
                 type: 'bar',
-                data: {
-                    labels: datosCargaOrd.labels,
-                    datasets: [{
-                        label: 'Atenciones',
-                        data: datosCargaOrd.data,
-                        backgroundColor: '#14b8a6', // brand-500
-                        borderRadius: 4
-                    }]
-                },
-                options: {
-                    indexAxis: 'y', // La hacemos horizontal para que los nombres encajen bien
-                    responsive: true, maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: { x: { beginAtZero: true, grid: { color: '#f1f5f9' } }, y: { grid: { display: false }, ticks: { autoSkip: false } } }
-                }
+                data: { labels: datosCarga.labels, datasets: [{ label: 'Atenciones', data: datosCarga.data, backgroundColor: '#14b8a6', borderRadius: 4 }] },
+                options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
             });
 
-            // 2. Distribución Tipos (Doughnut)
-            const ctxTipos = document.getElementById('chartTipos').getContext('2d');
-            charts.tipos = new Chart(ctxTipos, {
+            // 2. Tipos de Servicio
+            charts.tipos = new Chart(document.getElementById('chartTipos').getContext('2d'), {
                 type: 'doughnut',
-                data: {
-                    labels: Object.keys(tiposMap),
-                    datasets: [{
-                        data: Object.values(tiposMap),
-                        backgroundColor: palette,
-                        borderWidth: 0, hoverOffset: 5
-                    }]
-                },
-                options: {
-                    responsive: true, maintainAspectRatio: false, cutout: '70%',
-                    plugins: { legend: { position: 'right', labels: { usePointStyle: true, boxWidth: 8 } } }
-                }
+                data: { labels: Object.keys(tiposMap), datasets: [{ data: Object.values(tiposMap), backgroundColor: palette }] },
+                options: { responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: { legend: { position: 'right' } } }
             });
 
-            // Función Helper para ordenar datos (mayor a menor) para gráficas de barras horizontales
-            const ordenarDatos = (objMap) => {
-                let arrayDeArrays = Object.entries(objMap);
-                arrayDeArrays.sort((a, b) => b[1] - a[1]); // Orden descendente
-                // Tomar máximo el Top 10 para no saturar
-                arrayDeArrays = arrayDeArrays.slice(0, 10);
-                return {
-                    labels: arrayDeArrays.map(item => item[0]),
-                    data: arrayDeArrays.map(item => item[1])
-                };
-            };
-
-            // 3. Principales Clientes (Barra Horizontal)
-            const datosClientesOrd = ordenarDatos(clientesMap);
-            const ctxClientes = document.getElementById('chartClientes').getContext('2d');
-            charts.clientes = new Chart(ctxClientes, {
+            // 3. Clientes
+            const datosClientes = ordenarDatos(clientesMap);
+            charts.clientes = new Chart(document.getElementById('chartClientes').getContext('2d'), {
                 type: 'bar',
-                data: {
-                    labels: datosClientesOrd.labels,
-                    datasets: [{
-                        label: 'Servicios',
-                        data: datosClientesOrd.data,
-                        backgroundColor: '#3b82f6',
-                        borderRadius: 4
-                    }]
-                },
-                options: {
-                    indexAxis: 'y', responsive: true, maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: { x: { beginAtZero: true, grid: { color: '#f1f5f9' } }, y: { grid: { display: false }, ticks: { autoSkip: false } } }
-                }
+                data: { labels: datosClientes.labels, datasets: [{ label: 'Servicios', data: datosClientes.data, backgroundColor: '#3b82f6', borderRadius: 4 }] },
+                options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
             });
 
-            // 4. Principales Marcas (Barra Horizontal)
-            const datosMarcasOrd = ordenarDatos(marcasMap);
-            const ctxMarcas = document.getElementById('chartMarcas').getContext('2d');
-            charts.marcas = new Chart(ctxMarcas, {
+            // 4. Marcas
+            const datosMarcas = ordenarDatos(marcasMap);
+            charts.marcas = new Chart(document.getElementById('chartMarcas').getContext('2d'), {
                 type: 'bar',
-                data: {
-                    labels: datosMarcasOrd.labels,
-                    datasets: [{
-                        label: 'Equipos',
-                        data: datosMarcasOrd.data,
-                        backgroundColor: '#8b5cf6', // purple
-                        borderRadius: 4
-                    }]
-                },
-                options: {
-                    indexAxis: 'y', responsive: true, maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: { x: { beginAtZero: true, grid: { color: '#f1f5f9' } }, y: { grid: { display: false }, ticks: { autoSkip: false } } }
-                }
+                data: { labels: datosMarcas.labels, datasets: [{ label: 'Equipos', data: datosMarcas.data, backgroundColor: '#8b5cf6', borderRadius: 4 }] },
+                options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
             });
         }
 
-        // =========================================================
-        // Funcionalidad e Interacción del Modal Oportunidades
-        // =========================================================
+        // Interacción Modal
         document.getElementById('card-ventas').addEventListener('click', () => {
-            const modal = document.getElementById('modalOportunidades');
             const tbody = document.getElementById('listaOportunidades');
-            const emptyMsg = document.getElementById('noOportunidades');
-            
             tbody.innerHTML = '';
             
-            // Buscar aquellos registros del periodo actual que tienen oportunidades de venta (> 0)
-            const oportunidades = datosActuales.filter(d => {
-                const val = d.oportunidades_venta;
-                return (Number(val) > 0) || (typeof val === 'string' && val.trim().toLowerCase() === 'si');
-            });
+            const oportunidades = datosActuales.filter(d => d.oportunidades_venta > 0);
             
             if (oportunidades.length === 0) {
-                emptyMsg.classList.remove('hidden');
+                document.getElementById('noOportunidades').classList.remove('hidden');
                 tbody.parentElement.classList.add('hidden');
             } else {
-                emptyMsg.classList.add('hidden');
+                document.getElementById('noOportunidades').classList.add('hidden');
                 tbody.parentElement.classList.remove('hidden');
                 
-                // Generar filas de la tabla
                 oportunidades.forEach(op => {
                     const tr = document.createElement('tr');
-                    tr.classList.add('hover:bg-slate-50', 'transition-colors');
+                    tr.classList.add('hover:bg-slate-50');
                     tr.innerHTML = `
-                        <td class="px-4 py-3 font-semibold text-brand-600 whitespace-nowrap">${op.ID || 'S/N'}</td>
-                        <td class="px-4 py-3">${op.Cliente || 'No especificado'}</td>
-                        <td class="px-4 py-3 text-slate-500 text-sm">${op.Equipo || 'No especificado'}</td>
-                        <td class="px-4 py-3">
-                            <span class="bg-slate-100 text-slate-600 border border-slate-200 px-2 py-1 rounded-md text-xs font-medium whitespace-nowrap">
-                                ${op.Ingeniero || 'No asignado'}
-                            </span>
-                        </td>
+                        <td class="px-4 py-3 font-bold text-brand-600">ID: ${op.ID}</td>
+                        <td class="px-4 py-3">${op.Cliente}</td>
+                        <td class="px-4 py-3 text-slate-500">${op.Equipo}</td>
+                        <td class="px-4 py-3"><span class="bg-slate-100 text-slate-600 px-2 py-1 rounded-md text-xs font-bold border border-slate-200">${op.Ingeniero}</span></td>
                     `;
                     tbody.appendChild(tr);
                 });
             }
-            modal.classList.remove('hidden');
+            document.getElementById('modalOportunidades').classList.remove('hidden');
         });
 
         document.getElementById('cerrarModal').addEventListener('click', () => {
             document.getElementById('modalOportunidades').classList.add('hidden');
         });
-
-        document.getElementById('monthFilter').addEventListener('change', (e) => {
-            renderizarDashboard(e.target.value);
-        });
-
+        document.getElementById('monthFilter').addEventListener('change', (e) => renderizarDashboard(e.target.value));
         document.getElementById('btnAnual').addEventListener('click', () => {
             document.getElementById('monthFilter').value = 'todos';
             renderizarDashboard('todos');
         });
 
         window.onload = cargarDatos;
-
     </script>
 </body>
 </html>
