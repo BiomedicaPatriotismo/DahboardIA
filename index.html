@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard de Mantenimiento y Servicio (Avanzado)</title>
+    <title>Dashboard Operativo Completo</title>
     
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
@@ -92,7 +92,7 @@
         </div>
 
         <h2 class="text-lg font-bold text-slate-800 mb-4 px-2">Indicadores Clave de Rendimiento (KPIs)</h2>
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             
             <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between">
                 <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-2">Ratio Preventivo</div>
@@ -139,23 +139,23 @@
             </div>
         </div>
 
-        <h2 class="text-lg font-bold text-slate-800 mb-4 px-2 mt-8">Estatus de Equipos Atendidos</h2>
+        <h2 class="text-lg font-bold text-slate-800 mb-4 px-2">Estatus de Equipos Atendidos</h2>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
-            <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between">
-                <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-2">Garantía</div>
-                <div class="text-3xl font-bold text-slate-800" id="ind-garantia">0</div>
+            <div class="bg-slate-800 rounded-2xl p-5 shadow-sm text-white flex flex-col justify-between">
+                <div class="text-slate-300 text-xs font-semibold uppercase tracking-wider mb-2">Equipos en Garantía</div>
+                <div class="text-3xl font-bold" id="ind-garantia">0</div>
             </div>
-            <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between">
-                <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-2">En Contrato</div>
-                <div class="text-3xl font-bold text-slate-800" id="ind-contrato">0</div>
+            <div class="bg-slate-800 rounded-2xl p-5 shadow-sm text-white flex flex-col justify-between">
+                <div class="text-slate-300 text-xs font-semibold uppercase tracking-wider mb-2">Equipos en Contrato</div>
+                <div class="text-3xl font-bold" id="ind-contrato">0</div>
             </div>
-            <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between">
-                <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-2">Fuera de Servicio</div>
-                <div class="text-3xl font-bold text-red-500" id="ind-fuera">0</div>
+            <div class="bg-slate-100 rounded-2xl p-5 shadow-sm border border-slate-200 flex flex-col justify-between">
+                <div class="text-slate-600 text-xs font-semibold uppercase tracking-wider mb-2">Fuera de Servicio</div>
+                <div class="text-3xl font-bold text-slate-800" id="ind-fuera">0</div>
             </div>
-            <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between">
-                <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-2">A Prueba (8 Días)</div>
-                <div class="text-3xl font-bold text-orange-500" id="ind-prueba">0</div>
+            <div class="bg-slate-100 rounded-2xl p-5 shadow-sm border border-slate-200 flex flex-col justify-between">
+                <div class="text-slate-600 text-xs font-semibold uppercase tracking-wider mb-2">A Prueba (8 Días)</div>
+                <div class="text-3xl font-bold text-slate-800" id="ind-prueba">0</div>
             </div>
         </div>
 
@@ -241,15 +241,13 @@
                 const csvTextoCorpus = await respCorpus.text();
 
                 Papa.parse(csvTextoDashboard, {
-                    header: true,
-                    skipEmptyLines: true,
+                    header: true, skipEmptyLines: true,
                     transformHeader: function(h) { return h.trim().toLowerCase(); },
                     complete: function(results) { datosAgrupadosPorMes = results.data; }
                 });
 
                 Papa.parse(csvTextoCorpus, {
-                    header: true,
-                    skipEmptyLines: true,
+                    header: true, skipEmptyLines: true,
                     transformHeader: function(h) { return h.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""); },
                     complete: function(results) { procesarDatosCorpus(results.data); }
                 });
@@ -261,8 +259,7 @@
                 }, 500);
 
             } catch (error) {
-                console.error("Detalle del Error:", error);
-                mostrarError("Error de Conexión: " + error.message + ". Verifica que los enlaces estén publicados en la web como CSV.");
+                mostrarError("Error de Conexión: " + error.message);
             }
         }
 
@@ -286,26 +283,19 @@
                 obj['Cliente'] = row['unidad:'] || row['unidad'] || row['cliente'] || 'Sin Cliente';
                 obj['Marca'] = row['marca:'] || row['marca'] || 'Sin Marca';
 
-                let textoEstatus = (row['estatus de seguimiento'] || row['escribauna'] || '').toUpperCase().trim();
-                obj['estatus_seguimiento_limpio'] = textoEstatus.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                let estatusRaw = (row['estatus de seguimiento'] || row['escribauna'] || '').toUpperCase().trim();
+                let estatusLimpio = estatusRaw.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                
+                obj['estatus_seguimiento_limpio'] = estatusLimpio;
 
-                let estatusSeguimiento = (row['estatus de seguimiento'] || '').toUpperCase().trim();
-                
-                let textosNota = [
-                    row['escribauna'],
-                    row['observaciones:'],
-                    row['observaciones'],
-                    row['detalle de funcionalidad:'],
-                    row['detalle de funcionalidad']
-                ];
-                let notaCompleta = textosNota.filter(Boolean).join(' | ').toUpperCase();
-                
                 obj['oportunidad'] = false;
                 obj['motivo_venta'] = '';
                 
-                if (estatusSeguimiento.includes('REQUIERE COTIZACION') || estatusSeguimiento.includes('REQUIERE COTIZACIÓN')) {
+                // Filtro estricto: Solo si dice "REQUIERE COTIZACION"
+                if (estatusLimpio.includes('REQUIERE COTIZACION')) {
                     obj['oportunidad'] = true;
-                    obj['motivo_venta'] = notaCompleta !== '' ? notaCompleta : 'Sin notas adicionales';
+                    let nota = (row['observaciones:'] || row['observaciones'] || row['detalle de funcionalidad:'] || '').trim();
+                    obj['motivo_venta'] = nota !== '' ? nota : estatusRaw;
                 }
 
                 if (obj['ID'] !== 'S/N') {
@@ -323,11 +313,11 @@
 
         const formatearKPI = (valor, esPorcentaje = false) => {
              if (esPorcentaje) return valor.toFixed(1) + '%';
-             return valor.toFixed(1); 
+             return valor.toFixed(1);
         };
 
         function renderizarDashboard(filtroMes) {
-            let sumMTTR = 0, sumFallas = 0, sumPrev = 0, sumCorr = 0, sumEntrega = 0, sumRefac = 0, sumVentas = 0;
+            let sumMTTR = 0, sumFallas = 0, sumPrev = 0, sumCorr = 0, sumEntrega = 0, sumRefac = 0;
             let kpiTotalItems = 0;
 
             let datosFiltradosKPI = datosAgrupadosPorMes;
@@ -343,27 +333,34 @@
                     sumEntrega += parsePercent(d.tasa_entrega);
                     sumRefac += parsePercent(d.tasa_refacciones);
                     sumFallas += parsePercent(d.fallas_criticas);
-                    sumVentas += parseInt(d.oportunidades_venta) || 0;
                     kpiTotalItems++;
                 });
 
                 let divisorPromedio = filtroMes === 'todos' ? kpiTotalItems : 1;
 
-                document.getElementById('kpi-prev').innerText = formatearKPI(sumPrev / divisorPromedio, true);
-                document.getElementById('kpi-corr').innerText = formatearKPI(sumCorr / divisorPromedio, true);
-                document.getElementById('kpi-mttr').innerText = formatearKPI(sumMTTR / divisorPromedio, false);
-                document.getElementById('kpi-entrega').innerText = formatearKPI(sumEntrega / divisorPromedio, true);
-                document.getElementById('kpi-refacciones').innerText = formatearKPI(sumRefac / divisorPromedio, true);
-                document.getElementById('kpi-fallas').innerText = formatearKPI(sumFallas / divisorPromedio, true);
-                document.getElementById('kpi-ventas').innerText = sumVentas; 
+                const setVal = (id, val) => { if(document.getElementById(id)) document.getElementById(id).innerText = val; };
+                
+                setVal('kpi-prev', formatearKPI(sumPrev / divisorPromedio, true));
+                setVal('kpi-corr', formatearKPI(sumCorr / divisorPromedio, true));
+                setVal('kpi-mttr', formatearKPI(sumMTTR / divisorPromedio, false));
+                setVal('kpi-entrega', formatearKPI(sumEntrega / divisorPromedio, true));
+                setVal('kpi-refacciones', formatearKPI(sumRefac / divisorPromedio, true));
+                setVal('kpi-fallas', formatearKPI(sumFallas / divisorPromedio, true));
+
             } else {
-                 document.querySelectorAll('[id^="kpi-"]').forEach(el => el.innerText = el.id.includes('ventas') || el.id.includes('mttr') ? '0' : '0%');
+                 document.querySelectorAll('[id^="kpi-"]').forEach(el => {
+                     if(!el.id.includes('ventas')) el.innerText = el.id.includes('mttr') ? '0' : '0%';
+                 });
             }
 
             let datosFiltradosCorpus = datosDetalleOrdenes;
             if (filtroMes !== 'todos') {
                 datosFiltradosCorpus = datosDetalleOrdenes.filter(item => item.Mes === filtroMes);
             }
+
+            // Sincronización perfecta de las Ventas calculadas de la tabla
+            const conteoVentasReales = datosFiltradosCorpus.filter(d => d.oportunidad).length;
+            if(document.getElementById('kpi-ventas')) document.getElementById('kpi-ventas').innerText = conteoVentasReales;
 
             let cargaMap = {}, tiposMap = {}, clientesMap = {}, marcasMap = {};
             let countGarantia = 0, countContrato = 0, countFuera = 0, countPrueba = 0;
@@ -379,18 +376,16 @@
                 if(d.Ingeniero && d.Ingeniero !== 'Sin Asignar') {
                     cargaMap[d.Ingeniero] = (cargaMap[d.Ingeniero] || 0) + 1;
                 }
-                if(d['Tipo de Servicio']) {
-                    tiposMap[d['Tipo de Servicio']] = (tiposMap[d['Tipo de Servicio']] || 0) + 1;
-                }
+                
+                if(d['Tipo de Servicio']) tiposMap[d['Tipo de Servicio']] = (tiposMap[d['Tipo de Servicio']] || 0) + 1;
                 clientesMap[d.Cliente] = (clientesMap[d.Cliente] || 0) + 1;
                 marcasMap[d.Marca] = (marcasMap[d.Marca] || 0) + 1;
             });
 
-            /* Seguro para evitar choques de JS si las tarjetas se llegan a borrar del HTML */
-            const elGarantia = document.getElementById('ind-garantia'); if(elGarantia) elGarantia.innerText = countGarantia;
-            const elContrato = document.getElementById('ind-contrato'); if(elContrato) elContrato.innerText = countContrato;
-            const elFuera = document.getElementById('ind-fuera'); if(elFuera) elFuera.innerText = countFuera;
-            const elPrueba = document.getElementById('ind-prueba'); if(elPrueba) elPrueba.innerText = countPrueba;
+            if(document.getElementById('ind-garantia')) document.getElementById('ind-garantia').innerText = countGarantia;
+            if(document.getElementById('ind-contrato')) document.getElementById('ind-contrato').innerText = countContrato;
+            if(document.getElementById('ind-fuera')) document.getElementById('ind-fuera').innerText = countFuera;
+            if(document.getElementById('ind-prueba')) document.getElementById('ind-prueba').innerText = countPrueba;
 
             actualizarGraficas(cargaMap, tiposMap, clientesMap, marcasMap);
             configurarModalOportunidades(datosFiltradosCorpus);
@@ -406,51 +401,60 @@
             };
 
             const datosCarga = toData(carga);
-            charts.carga = new Chart(document.getElementById('chartCargaTrabajo'), {
-                type: 'bar',
-                data: { labels: datosCarga.labels, datasets: [{ data: datosCarga.data, backgroundColor: '#14b8a6', borderRadius: 4 }] },
-                options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, datalabels: { display: false } } }
-            });
+            if(document.getElementById('chartCargaTrabajo')) {
+                charts.carga = new Chart(document.getElementById('chartCargaTrabajo'), {
+                    type: 'bar',
+                    data: { labels: datosCarga.labels, datasets: [{ data: datosCarga.data, backgroundColor: '#14b8a6', borderRadius: 4 }] },
+                    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, datalabels: { display: false } } }
+                });
+            }
 
-            charts.tipos = new Chart(document.getElementById('chartTipos'), {
-                type: 'doughnut',
-                data: { labels: Object.keys(tipos), datasets: [{ data: Object.values(tipos), backgroundColor: palette }] },
-                options: { 
-                    responsive: true, maintainAspectRatio: false, cutout: '50%', 
-                    plugins: { 
-                        legend: { position: 'right' },
-                        datalabels: {
-                            color: '#ffffff', font: { weight: 'bold' },
-                            formatter: (value, ctx) => {
-                                let datasets = ctx.chart.data.datasets;
-                                if (datasets.indexOf(ctx.dataset) === datasets.length - 1) {
-                                    let sum = 0; datasets[0].data.map(data => { sum += data; });
-                                    let percentage = Math.round((value / sum) * 100) + '%';
-                                    return percentage;
-                                } else return value;
+            if(document.getElementById('chartTipos')) {
+                charts.tipos = new Chart(document.getElementById('chartTipos'), {
+                    type: 'doughnut',
+                    data: { labels: Object.keys(tipos), datasets: [{ data: Object.values(tipos), backgroundColor: palette }] },
+                    options: { 
+                        responsive: true, maintainAspectRatio: false, cutout: '50%', 
+                        plugins: { 
+                            legend: { position: 'right' },
+                            datalabels: {
+                                color: '#ffffff', font: { weight: 'bold' },
+                                formatter: (value, ctx) => {
+                                    let datasets = ctx.chart.data.datasets;
+                                    if (datasets.indexOf(ctx.dataset) === datasets.length - 1) {
+                                        let sum = 0; datasets[0].data.map(data => { sum += data; });
+                                        return Math.round((value / sum) * 100) + '%';
+                                    } else { return value; }
+                                }
                             }
-                        }
-                    } 
-                }
-            });
+                        } 
+                    }
+                });
+            }
 
             const datosCl = toData(clientes);
-            charts.clientes = new Chart(document.getElementById('chartClientes'), {
-                type: 'bar',
-                data: { labels: datosCl.labels, datasets: [{ data: datosCl.data, backgroundColor: '#3b82f6', borderRadius: 4 }] },
-                options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, datalabels: { display: false } } }
-            });
+            if(document.getElementById('chartClientes')) {
+                charts.clientes = new Chart(document.getElementById('chartClientes'), {
+                    type: 'bar',
+                    data: { labels: datosCl.labels, datasets: [{ data: datosCl.data, backgroundColor: '#3b82f6', borderRadius: 4 }] },
+                    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, datalabels: { display: false } } }
+                });
+            }
 
             const datosMc = toData(marcas);
-            charts.marcas = new Chart(document.getElementById('chartMarcas'), {
-                type: 'bar',
-                data: { labels: datosMc.labels, datasets: [{ data: datosMc.data, backgroundColor: '#8b5cf6', borderRadius: 4 }] },
-                options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, datalabels: { display: false } } }
-            });
+            if(document.getElementById('chartMarcas')) {
+                charts.marcas = new Chart(document.getElementById('chartMarcas'), {
+                    type: 'bar',
+                    data: { labels: datosMc.labels, datasets: [{ data: datosMc.data, backgroundColor: '#8b5cf6', borderRadius: 4 }] },
+                    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, datalabels: { display: false } } }
+                });
+            }
         }
 
         function configurarModalOportunidades(datosFiltradosCorpus) {
             const btnCard = document.getElementById('card-ventas');
+            if(!btnCard) return;
+            
             const newBtnCard = btnCard.cloneNode(true);
             btnCard.parentNode.replaceChild(newBtnCard, btnCard);
 
@@ -470,12 +474,13 @@
                     oportunidades.forEach(op => {
                         const tr = document.createElement('tr');
                         tr.classList.add('hover:bg-slate-50', 'transition-colors');
+                        // Se mejoró el texto de la última celda con whitespace-normal y break-words para que no se corte
                         tr.innerHTML = `
                             <td class="px-4 py-3 font-bold text-brand-600 whitespace-nowrap">${op.ID}</td>
                             <td class="px-4 py-3 text-slate-800 font-medium">${op.Cliente}</td>
                             <td class="px-4 py-3 text-slate-500">${op.Equipo}</td>
                             <td class="px-4 py-3"><span class="bg-slate-100 text-slate-600 px-2 py-1 rounded-md text-xs font-bold border border-slate-200">${op.Ingeniero}</span></td>
-                            <td class="px-4 py-3 text-xs text-slate-500 italic max-w-xs truncate" title="${op.motivo_venta}">${op.motivo_venta}</td>
+                            <td class="px-4 py-3 text-xs text-slate-500 italic whitespace-normal min-w-[250px] break-words">${op.motivo_venta}</td>
                         `;
                         tbody.appendChild(tr);
                     });
@@ -484,15 +489,22 @@
             });
         }
 
-        document.getElementById('cerrarModal').addEventListener('click', () => {
-            document.getElementById('modalOportunidades').classList.add('hidden');
-        });
+        if(document.getElementById('cerrarModal')) {
+            document.getElementById('cerrarModal').addEventListener('click', () => {
+                document.getElementById('modalOportunidades').classList.add('hidden');
+            });
+        }
         
-        document.getElementById('monthFilter').addEventListener('change', (e) => renderizarDashboard(e.target.value));
-        document.getElementById('btnAnual').addEventListener('click', () => {
-            document.getElementById('monthFilter').value = 'todos';
-            renderizarDashboard('todos');
-        });
+        if(document.getElementById('monthFilter')) {
+            document.getElementById('monthFilter').addEventListener('change', (e) => renderizarDashboard(e.target.value));
+        }
+        
+        if(document.getElementById('btnAnual')) {
+            document.getElementById('btnAnual').addEventListener('click', () => {
+                document.getElementById('monthFilter').value = 'todos';
+                renderizarDashboard('todos');
+            });
+        }
 
         window.onload = cargarDatos;
     </script>
