@@ -295,8 +295,15 @@
                 obj['Cliente'] = row['unidad:'] || row['unidad'] || row['cliente'] || 'Sin Cliente';
                 obj['Marca'] = row['marca:'] || row['marca'] || 'Sin Marca';
 
-                // Lógica MEJORADA de Oportunidades de Venta
-                // Unimos TODAS las columnas de notas posibles para no perder información
+                // Guardar estatus limpio para conteo de indicadores (Garantía, Contrato, etc.)
+                // Buscamos tanto en 'estatus de seguimiento' como en 'escribauna'
+                let textoEstatus = (row['estatus de seguimiento'] || row['escribauna'] || '').toUpperCase().trim();
+                obj['estatus_seguimiento_limpio'] = textoEstatus.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+                // Lógica EXACTA para Oportunidades de Venta basada en Estatus de Seguimiento
+                let estatusSeguimiento = (row['estatus de seguimiento'] || '').toUpperCase().trim();
+                
+                // Juntamos el texto de las notas solo para que tengas contexto de por qué requiere cotización en la tabla
                 let textosNota = [
                     row['escribauna'],
                     row['observaciones:'],
@@ -305,19 +312,16 @@
                     row['detalle de funcionalidad']
                 ];
                 
-                // Juntamos todo el texto y lo pasamos a mayúsculas
                 let notaCompleta = textosNota.filter(Boolean).join(' | ').toUpperCase();
                 
                 obj['oportunidad'] = false;
                 obj['motivo_venta'] = '';
                 
-                // Buscamos las palabras clave en todo el texto unido
-                if (notaCompleta.includes('COTIZA') || notaCompleta.includes('MILLON') || 
-                    notaCompleta.includes('VENTA') || notaCompleta.includes('GARANTÍA') || 
-                    notaCompleta.includes('GARANTIA')) {
+                // Solo será oportunidad de venta si en la columna dice REQUIERE COTIZACIÓN
+                if (estatusSeguimiento.includes('REQUIERE COTIZACION') || estatusSeguimiento.includes('REQUIERE COTIZACIÓN')) {
                     obj['oportunidad'] = true;
-                    // Guardamos la nota completa para ver todo el contexto en el modal
-                    obj['motivo_venta'] = notaCompleta;
+                    // Mostramos las notas para que el usuario sepa qué refacción se necesita cotizar
+                    obj['motivo_venta'] = notaCompleta !== '' ? notaCompleta : 'Sin notas adicionales';
                 }
 
                 // Guardar si tiene un ID válido (ignoramos filas completamente vacías)
@@ -398,8 +402,17 @@
             }
 
             let cargaMap = {}, tiposMap = {}, clientesMap = {}, marcasMap = {};
+            let countGarantia = 0, countContrato = 0, countFuera = 0, countPrueba = 0;
 
             datosFiltradosCorpus.forEach(d => {
+                // Conteo de Nuevos Indicadores de Estatus
+                if (d.estatus_seguimiento_limpio) {
+                    if (d.estatus_seguimiento_limpio.includes('GARANTIA')) countGarantia++;
+                    if (d.estatus_seguimiento_limpio.includes('CONTRATO')) countContrato++;
+                    if (d.estatus_seguimiento_limpio.includes('FUERA DE SERVICIO')) countFuera++;
+                    if (d.estatus_seguimiento_limpio.includes('PRUEBA') || d.estatus_seguimiento_limpio.includes('8 DIAS')) countPrueba++;
+                }
+
                 // Mapas de conteo para gráficas
                 // Ignore empty ingenieros
                 if(d.Ingeniero && d.Ingeniero !== 'Sin Asignar') {
@@ -412,6 +425,12 @@
                 clientesMap[d.Cliente] = (clientesMap[d.Cliente] || 0) + 1;
                 marcasMap[d.Marca] = (marcasMap[d.Marca] || 0) + 1;
             });
+
+            // Actualizar el DOM de los nuevos indicadores
+            document.getElementById('ind-garantia').innerText = countGarantia;
+            document.getElementById('ind-contrato').innerText = countContrato;
+            document.getElementById('ind-fuera').innerText = countFuera;
+            document.getElementById('ind-prueba').innerText = countPrueba;
 
             actualizarGraficas(cargaMap, tiposMap, clientesMap, marcasMap);
             
