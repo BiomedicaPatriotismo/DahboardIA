@@ -57,6 +57,17 @@
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen pb-12">
 
+    <!-- Mensaje de Error de Conexión (Oculto por defecto) -->
+    <div id="errorBanner" class="hidden max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 fade-in">
+        <div class="bg-red-50 border-l-4 border-red-500 text-red-700 p-4 rounded-xl shadow-sm">
+            <div class="flex items-center">
+                <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                <p class="font-bold text-lg">Atención: Error al conectar con Google Sheets</p>
+            </div>
+            <p id="errorTexto" class="mt-2 font-medium">No se pudo cargar la hoja. Revisa el enlace.</p>
+        </div>
+    </div>
+
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         
         <!-- Encabezado y Filtros -->
@@ -238,6 +249,13 @@
         // Colores consistentes y modernos
         const palette = ['#3b82f6', '#14b8a6', '#f59e0b', '#ef4444', '#8b5cf6', '#64748b', '#0ea5e9'];
 
+        function mostrarError(mensaje) {
+            const banner = document.getElementById('errorBanner');
+            const texto = document.getElementById('errorTexto');
+            texto.innerText = mensaje;
+            banner.classList.remove('hidden');
+        }
+
         // =====================================================================
         // DATOS MOCK: Estructura simulada actualizada
         // =====================================================================
@@ -276,54 +294,116 @@
 
         async function cargarDatos() {
             // =====================================================================
-            // INSTRUCCIÓN: Pega aquí la URL de tu CSV publicado de Google Sheets.
-            // Si lo dejas vacío, usará los datos de prueba de arriba.
+            // INSTRUCCIÓN: PEGA TU ENLACE ENTRE LAS COMILLAS (Puede ser el enlace normal)
             // =====================================================================
-            const urlCSV = ''; 
+            let urlOriginal = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTX8QjDtAKXCfIUI4Uc2FENvOfBh-XCoxjBGWiTxRkqHQ3YjnvY3TnZf7FqJsn2o3yAyhV0ge78nJea/pub?gid=570492353&single=true&output=csv'; 
+
+            if (!urlOriginal || urlOriginal.trim() === '') {
+                console.warn("Mostrando datos de prueba. Por favor pon tu enlace de Google Sheets.");
+                datosCompletos = datosMock;
+                inicializarFiltros();
+                renderizarDashboard('todos');
+                return;
+            }
 
             try {
-                if (urlCSV !== '') {
-                    const response = await fetch(urlCSV);
-                    const text = await response.text();
-                    const lineas = parseCSV(text);
-                    const headers = lineas[0];
-                    
-                    datosCompletos = [];
-                    for(let i = 1; i < lineas.length; i++) {
-                        if(lineas[i].length <= 1) continue;
-                        let obj = {};
-                        headers.forEach((h, index) => {
-                            // Limpieza profunda del nombre de la columna para evitar fallos por espacios
-                            let headerLimpio = normalizeString(h);
-                            
-                            // Mapeo flexible de columnas basado en los nombres solicitados
-                            if(headerLimpio.includes('mes')) obj['Mes'] = lineas[i][index];
-                            else if(headerLimpio.includes('idunico') || headerLimpio.includes('orden')) obj['ID'] = lineas[i][index];
-                            else if(headerLimpio.includes('ingeniero')) obj['Ingeniero'] = lineas[i][index];
-                            else if(headerLimpio.includes('equipo') && !headerLimpio.includes('medicion')) obj['Equipo'] = lineas[i][index];
-                            else if(headerLimpio.includes('mttr')) obj['MTTR'] = lineas[i][index];
-                            else if(headerLimpio.includes('fallascriticas')) obj['fallas_criticas'] = lineas[i][index];
-                            else if(headerLimpio.includes('ratiopreventivo')) obj['ratio_preventivo'] = lineas[i][index];
-                            else if(headerLimpio.includes('ratiocorectivo') || headerLimpio.includes('ratiocorrectivo')) obj['ratio_corectivo'] = lineas[i][index];
-                            else if(headerLimpio.includes('tasaentrega')) obj['tasa_entrega'] = lineas[i][index];
-                            else if(headerLimpio.includes('tasarefacciones')) obj['tasa_refacciones'] = lineas[i][index];
-                            else if(headerLimpio.includes('oportunidades')) obj['oportunidades_venta'] = lineas[i][index];
-                            else if(headerLimpio.includes('tipodeservicio')) obj['Tipo de Servicio'] = lineas[i][index];
-                            else if(headerLimpio.includes('unidad') || headerLimpio.includes('cliente')) obj['Cliente'] = lineas[i][index];
-                            else if(headerLimpio.includes('marca')) obj['Marca'] = lineas[i][index];
-                        });
-                        datosCompletos.push(obj);
+                let fetchUrl = urlOriginal;
+                
+                // Conversión automática: Si el usuario pega el link de "Editar", lo convertimos a exportación
+                if (urlOriginal.includes('/edit') || urlOriginal.includes('/view')) {
+                    const matchId = urlOriginal.match(/\/d\/([a-zA-Z0-9-_]+)/);
+                    if (matchId) {
+                        const id = matchId[1];
+                        const matchGid = urlOriginal.match(/gid=([0-9]+)/);
+                        const gid = matchGid ? matchGid[1] : '0';
+                        fetchUrl = `https://docs.google.com/spreadsheets/d/${id}/export?format=csv&gid=${gid}`;
                     }
-                } else {
-                    datosCompletos = datosMock; // Usar Mock si no hay URL
                 }
 
+                const response = await fetch(fetchUrl);
+                if (!response.ok) throw new Error("Error de red al intentar descargar la hoja.");
+                
+                const text = await response.text();
+                
+                // Si la respuesta es una página HTML de Google, significa que la hoja NO es pública
+                if (text.trim().toLowerCase().startsWith('<!doctype html>') || text.toLowerCase().includes('<html')) {
+                    mostrarError("Acceso Denegado: Tu Google Sheet es privado. Ve a 'Compartir' en tu archivo y cambia el acceso a 'Cualquier persona con el enlace'.");
+                    return;
+                }
+
+                const lineas = parseCSV(text);
+                const headers = lineas[0];
+                
+                datosCompletos = [];
+                for(let i = 1; i < lineas.length; i++) {
+                    if(lineas[i].length <= 1) continue;
+                    let obj = {};
+                    
+                    // Mapeo Inteligente (Lee las columnas originales de tu documento)
+                    headers.forEach((h, index) => {
+                        let headerLimpio = normalizeString(h);
+                        const valor = lineas[i][index] ? lineas[i][index].trim() : '';
+                        
+                        if(headerLimpio.includes('mes')) obj['Mes'] = valor.toLowerCase();
+                        else if(headerLimpio.includes('idunico') || headerLimpio.includes('submission')) obj['ID'] = valor;
+                        else if(headerLimpio.includes('ingenierodeservicio') || headerLimpio.includes('ingeniero')) obj['Ingeniero'] = valor;
+                        else if(headerLimpio === 'equipo' || (headerLimpio.includes('equipo') && !headerLimpio.includes('medicion') && !headerLimpio.includes('calibracion') && !headerLimpio.includes('fallo'))) obj['Equipo'] = valor;
+                        else if(headerLimpio.includes('mttr')) obj['MTTR'] = valor;
+                        
+                        // Si ya usaste las columnas calculadas explícitas
+                        else if(headerLimpio.includes('fallascriticas')) obj['fallas_criticas'] = valor;
+                        else if(headerLimpio.includes('ratiopreventivo')) obj['ratio_preventivo'] = valor;
+                        else if(headerLimpio.includes('ratiocorectivo') || headerLimpio.includes('ratiocorrectivo')) obj['ratio_corectivo'] = valor;
+                        else if(headerLimpio.includes('tasaentrega')) obj['tasa_entrega'] = valor;
+                        else if(headerLimpio.includes('tasarefacciones')) obj['tasa_refacciones'] = valor;
+                        else if(headerLimpio.includes('oportunidades') || headerLimpio.includes('venta')) obj['oportunidades_venta'] = valor;
+                        
+                        // Si la hoja no tiene los KPIs, guardamos las crudas para deducirlas
+                        else if(headerLimpio.includes('tipodeservicio')) obj['Tipo de Servicio'] = valor;
+                        else if(headerLimpio === 'unidad' || headerLimpio.includes('cliente')) obj['Cliente'] = valor;
+                        else if(headerLimpio.includes('marca')) obj['Marca'] = valor;
+                        else if(headerLimpio.includes('operatividadapto')) obj['AptoPaciente'] = valor;
+                        else if(headerLimpio.includes('cambioderefacciones')) obj['CambioRefacciones'] = valor;
+                        else if(headerLimpio.includes('equipofallo')) obj['FalloPaciente'] = valor;
+                        else if(headerLimpio.includes('observaciones')) obj['Observaciones'] = valor;
+                        else if(headerLimpio.includes('escribauna')) obj['Cotizacion'] = valor;
+                        else if(headerLimpio.includes('clasificaciondelareparacion')) obj['ClasificacionReparacion'] = valor;
+                    });
+
+                    // Auto-Cálculo de métricas basándose en las columnas originales si los KPIs no existen explícitamente
+                    if (obj['ratio_preventivo'] === undefined) {
+                        obj['ratio_preventivo'] = (obj['Tipo de Servicio'] && obj['Tipo de Servicio'].toUpperCase().includes('PREVENTIVO')) ? 100 : 0;
+                    }
+                    if (obj['ratio_corectivo'] === undefined) {
+                        obj['ratio_corectivo'] = ((obj['Tipo de Servicio'] && obj['Tipo de Servicio'].toUpperCase().includes('CORRECTIVO')) || (obj['ClasificacionReparacion'] && obj['ClasificacionReparacion'] !== '')) ? 100 : 0;
+                    }
+                    if (obj['fallas_criticas'] === undefined) {
+                        obj['fallas_criticas'] = (obj['FalloPaciente'] && obj['FalloPaciente'].toLowerCase() === 'si') ? 1 : 0;
+                    }
+                    if (obj['tasa_entrega'] === undefined) {
+                        obj['tasa_entrega'] = (obj['AptoPaciente'] && obj['AptoPaciente'].toLowerCase() === 'si') ? 100 : 0;
+                    }
+                    if (obj['tasa_refacciones'] === undefined) {
+                        obj['tasa_refacciones'] = (obj['CambioRefacciones'] && (obj['CambioRefacciones'].toLowerCase().includes('si') || obj['CambioRefacciones'].toLowerCase().includes('proporcionad'))) ? 100 : 0;
+                    }
+                    if (obj['oportunidades_venta'] === undefined) {
+                        let esOportunidad = false;
+                        if (obj['Cotizacion'] && obj['Cotizacion'].toUpperCase().includes('COTIZACI')) esOportunidad = true;
+                        if (obj['Observaciones'] && obj['Observaciones'].toUpperCase().includes('COTIZACI')) esOportunidad = true;
+                        obj['oportunidades_venta'] = esOportunidad ? 1 : 0;
+                    }
+
+                    datosCompletos.push(obj);
+                }
+
+                document.getElementById('errorBanner').classList.add('hidden'); // Ocultar error si funcionó
+                
                 inicializarFiltros();
                 renderizarDashboard('todos');
 
             } catch (error) {
                 console.error("Error cargando los datos:", error);
-                alert("Hubo un error al cargar los datos. Revisa la consola.");
+                mostrarError("Ocurrió un fallo técnico al procesar el enlace. Verifica tu consola.");
             }
         }
 
