@@ -299,10 +299,7 @@
             let urlOriginal = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTX8QjDtAKXCfIUI4Uc2FENvOfBh-XCoxjBGWiTxRkqHQ3YjnvY3TnZf7FqJsn2o3yAyhV0ge78nJea/pub?gid=570492353&single=true&output=csv'; 
 
             if (!urlOriginal || urlOriginal.trim() === '') {
-                console.warn("Mostrando datos de prueba. Por favor pon tu enlace de Google Sheets.");
-                datosCompletos = datosMock;
-                inicializarFiltros();
-                renderizarDashboard('todos');
+                mostrarError("No se ha configurado ningún enlace válido de Google Sheets.");
                 return;
             }
 
@@ -337,6 +334,9 @@
                 datosCompletos = [];
                 for(let i = 1; i < lineas.length; i++) {
                     if(lineas[i].length <= 1) continue;
+                    // Ignorar filas que sean puras comas (vacías)
+                    if(lineas[i].join('').trim() === '') continue; 
+                    
                     let obj = {};
                     
                     // Mapeo Inteligente (Lee las columnas originales de tu documento)
