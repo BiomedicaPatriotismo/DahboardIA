@@ -285,28 +285,45 @@
                 let obj = {};
                 
                 // Mapeo adaptado a las columnas del Corpus document
-                obj['Mes'] = (row['mes'] || '').toLowerCase().trim();
-                // Usa ID único o Submission ID como respaldo
+                obj['Mes'] = (row['mes'] || 'sin mes').toLowerCase().trim();
                 obj['ID'] = row['id unico'] || row['submission id'] || row['idunico'] || 'S/N';
                 
-                // Manejar posibles variaciones de nombres de columnas por PapaParse
-                obj['Ingeniero'] = row['ingeniero de servicio'] || 'Sin Asignar';
+                // Manejar variaciones para el nombre del Ingeniero
+                obj['Ingeniero'] = row['ingeniero de servicio'] || row['ingeniero'] || row['tecnico'] || 'Sin Asignar';
                 obj['Equipo'] = row['equipo:'] || row['equipo'] || 'Sin Equipo';
                 obj['Tipo de Servicio'] = row['tipo de servicio o mantenimiento'] || '';
                 obj['Cliente'] = row['unidad:'] || row['unidad'] || row['cliente'] || 'Sin Cliente';
                 obj['Marca'] = row['marca:'] || row['marca'] || 'Sin Marca';
 
-                // Lógica de Oportunidades de Venta (Motivos Cotización, Garantía, etc.)
-                let nota = (row['escribauna'] || row['observaciones:'] || row['observaciones'] || '').toUpperCase();
+                // Lógica MEJORADA de Oportunidades de Venta
+                // Unimos TODAS las columnas de notas posibles para no perder información
+                let textosNota = [
+                    row['escribauna'],
+                    row['observaciones:'],
+                    row['observaciones'],
+                    row['detalle de funcionalidad:'],
+                    row['detalle de funcionalidad']
+                ];
+                
+                // Juntamos todo el texto y lo pasamos a mayúsculas
+                let notaCompleta = textosNota.filter(Boolean).join(' | ').toUpperCase();
+                
                 obj['oportunidad'] = false;
                 obj['motivo_venta'] = '';
-                if (nota.includes('COTIZA') || nota.includes('MILLON') || nota.includes('VENTA') || nota.includes('GARANTÍA')) {
+                
+                // Buscamos las palabras clave en todo el texto unido
+                if (notaCompleta.includes('COTIZA') || notaCompleta.includes('MILLON') || 
+                    notaCompleta.includes('VENTA') || notaCompleta.includes('GARANTÍA') || 
+                    notaCompleta.includes('GARANTIA')) {
                     obj['oportunidad'] = true;
-                    obj['motivo_venta'] = nota;
+                    // Guardamos la nota completa para ver todo el contexto en el modal
+                    obj['motivo_venta'] = notaCompleta;
                 }
 
-                // Guardar si tiene un ID válido o mes
-                if (obj['Mes']) datosDetalleOrdenes.push(obj);
+                // Guardar si tiene un ID válido (ignoramos filas completamente vacías)
+                if (obj['ID'] !== 'S/N') {
+                    datosDetalleOrdenes.push(obj);
+                }
             });
         }
 
