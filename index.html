@@ -139,8 +139,11 @@
             </div>
 
             <!-- KPI: Oportunidades de Venta -->
-            <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between md:col-span-2">
-                <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-2">Oportunidades de Venta Detectadas</div>
+            <div id="card-ventas" class="bg-white rounded-2xl p-5 shadow-sm border border-brand-100 flex flex-col justify-between md:col-span-2 cursor-pointer hover:shadow-md hover:border-brand-400 transition-all group">
+                <div class="flex justify-between items-start mb-2">
+                    <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider group-hover:text-brand-600 transition-colors">Oportunidades de Venta (Clic para ver detalle)</div>
+                    <svg class="w-4 h-4 text-slate-400 group-hover:text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                </div>
                 <div class="flex items-end gap-2">
                     <div class="text-3xl font-bold text-kpi-purple" id="kpi-ventas">0</div>
                     <span class="text-sm text-slate-500 font-medium mb-1">cotizaciones potenciales</span>
@@ -154,7 +157,7 @@
             
             <!-- Gráfica: Carga de Trabajo -->
             <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-                <h3 class="text-base font-bold text-slate-800 mb-4">Carga de Trabajo (Servicios por Mes)</h3>
+                <h3 class="text-base font-bold text-slate-800 mb-4">Carga de Trabajo (Atenciones por Ingeniero)</h3>
                 <div class="chart-wrapper">
                     <canvas id="chartCargaTrabajo"></canvas>
                 </div>
@@ -187,6 +190,39 @@
         </div>
     </div>
 
+    <!-- Modal Oportunidades de Venta -->
+    <div id="modalOportunidades" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden flex items-center justify-center z-50 fade-in">
+        <div class="bg-white rounded-2xl w-11/12 max-w-4xl max-h-[85vh] overflow-hidden shadow-2xl flex flex-col">
+            <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                <h3 class="text-lg font-bold text-slate-800">Detalle de Oportunidades de Venta</h3>
+                <button id="cerrarModal" class="text-slate-400 hover:text-slate-600 focus:outline-none bg-white rounded-full p-1 shadow-sm transition-colors hover:bg-slate-100">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <div class="p-6 overflow-y-auto flex-1 bg-slate-50/50">
+                <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+                    <table class="min-w-full divide-y divide-slate-200">
+                        <thead class="bg-slate-50">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Orden / ID</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Cliente</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Equipo</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Ingeniero</th>
+                            </tr>
+                        </thead>
+                        <tbody id="listaOportunidades" class="divide-y divide-slate-100 text-sm text-slate-700 bg-white">
+                            <!-- Inyectado via JS -->
+                        </tbody>
+                    </table>
+                </div>
+                <div id="noOportunidades" class="text-center py-10 text-slate-500 hidden flex flex-col items-center">
+                    <svg class="w-12 h-12 text-slate-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path></svg>
+                    <p>No hay oportunidades de venta detectadas en los filtros actuales.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         // Variables globales para las instancias de Chart.js
         let charts = {
@@ -197,22 +233,20 @@
         };
         
         let datosCompletos = [];
+        let datosActuales = []; // NUEVO: Guarda el estado de los datos filtrados en pantalla
 
         // Colores consistentes y modernos
         const palette = ['#3b82f6', '#14b8a6', '#f59e0b', '#ef4444', '#8b5cf6', '#64748b', '#0ea5e9'];
 
         // =====================================================================
-        // DATOS MOCK: Estructura simulada con todos los campos solicitados para que 
-        // el dashboard funcione visualmente antes de conectar Google Sheets.
+        // DATOS MOCK: Estructura simulada actualizada
         // =====================================================================
         const datosMock = [
-            { "Mes": "enero", "MTTR": "120", "fallas_criticas": "2", "ratio_preventivo": "70", "ratio_corectivo": "30", "tasa_entrega": "95", "tasa_refacciones": "15", "oportunidades_venta": "4", "Tipo de Servicio": "PREVENTIVO", "Cliente": "Hospital San Ángel Inn", "Marca": "Philips" },
-            { "Mes": "enero", "MTTR": "45", "fallas_criticas": "0", "ratio_preventivo": "70", "ratio_corectivo": "30", "tasa_entrega": "95", "tasa_refacciones": "15", "oportunidades_venta": "1", "Tipo de Servicio": "CORRECTIVO", "Cliente": "Hospital IA", "Marca": "Mindray" },
-            { "Mes": "febrero", "MTTR": "60", "fallas_criticas": "1", "ratio_preventivo": "85", "ratio_corectivo": "15", "tasa_entrega": "98", "tasa_refacciones": "5", "oportunidades_venta": "2", "Tipo de Servicio": "PREVENTIVO CALIBRACIÓN", "Cliente": "Ingenieros Asociados", "Marca": "GE" },
-            { "Mes": "febrero", "MTTR": "0", "fallas_criticas": "0", "ratio_preventivo": "85", "ratio_corectivo": "15", "tasa_entrega": "98", "tasa_refacciones": "5", "oportunidades_venta": "0", "Tipo de Servicio": "PREVENTIVO", "Cliente": "Hospital San Ángel Inn", "Marca": "Philips" },
-            { "Mes": "marzo", "MTTR": "180", "fallas_criticas": "3", "ratio_preventivo": "60", "ratio_corectivo": "40", "tasa_entrega": "85", "tasa_refacciones": "25", "oportunidades_venta": "5", "Tipo de Servicio": "CORRECTIVO", "Cliente": "Hospital General", "Marca": "Mindray" },
-            { "Mes": "marzo", "MTTR": "30", "fallas_criticas": "0", "ratio_preventivo": "60", "ratio_corectivo": "40", "tasa_entrega": "85", "tasa_refacciones": "25", "oportunidades_venta": "1", "Tipo de Servicio": "CURSO DE CAPACITACIÓN", "Cliente": "Hospital San Ángel Inn", "Marca": "Drager" },
-            { "Mes": "abril", "MTTR": "90", "fallas_criticas": "1", "ratio_preventivo": "90", "ratio_corectivo": "10", "tasa_entrega": "100", "tasa_refacciones": "10", "oportunidades_venta": "3", "Tipo de Servicio": "PREVENTIVO", "Cliente": "Hospital Regional", "Marca": "Philips" }
+            { "Mes": "enero", "ID": "5000", "Ingeniero": "Erick Serrano", "Equipo": "Monitor", "MTTR": "120", "fallas_criticas": "2", "ratio_preventivo": "70", "ratio_corectivo": "30", "tasa_entrega": "95", "tasa_refacciones": "15", "oportunidades_venta": "4", "Tipo de Servicio": "PREVENTIVO", "Cliente": "Hospital San Ángel Inn", "Marca": "Philips" },
+            { "Mes": "enero", "ID": "5001", "Ingeniero": "Omar Gonzalez", "Equipo": "Ventilador", "MTTR": "45", "fallas_criticas": "0", "ratio_preventivo": "70", "ratio_corectivo": "30", "tasa_entrega": "95", "tasa_refacciones": "15", "oportunidades_venta": "1", "Tipo de Servicio": "CORRECTIVO", "Cliente": "Hospital IA", "Marca": "Mindray" },
+            { "Mes": "febrero", "ID": "5002", "Ingeniero": "Daniela Trejo", "Equipo": "Desfibrilador", "MTTR": "60", "fallas_criticas": "1", "ratio_preventivo": "85", "ratio_corectivo": "15", "tasa_entrega": "98", "tasa_refacciones": "5", "oportunidades_venta": "2", "Tipo de Servicio": "PREVENTIVO CALIBRACIÓN", "Cliente": "Ingenieros Asociados", "Marca": "GE" },
+            { "Mes": "febrero", "ID": "5003", "Ingeniero": "Omar Gonzalez", "Equipo": "Monitor", "MTTR": "0", "fallas_criticas": "0", "ratio_preventivo": "85", "ratio_corectivo": "15", "tasa_entrega": "98", "tasa_refacciones": "5", "oportunidades_venta": "0", "Tipo de Servicio": "PREVENTIVO", "Cliente": "Hospital San Ángel Inn", "Marca": "Philips" },
+            { "Mes": "marzo", "ID": "5004", "Ingeniero": "Erick Serrano", "Equipo": "Máquina de Anestesia", "MTTR": "180", "fallas_criticas": "3", "ratio_preventivo": "60", "ratio_corectivo": "40", "tasa_entrega": "85", "tasa_refacciones": "25", "oportunidades_venta": "5", "Tipo de Servicio": "CORRECTIVO", "Cliente": "Hospital General", "Marca": "Mindray" }
         ];
 
         function parseCSV(str) {
@@ -264,6 +298,9 @@
                             
                             // Mapeo flexible de columnas basado en los nombres solicitados
                             if(headerLimpio.includes('mes')) obj['Mes'] = lineas[i][index];
+                            else if(headerLimpio.includes('idunico') || headerLimpio.includes('orden')) obj['ID'] = lineas[i][index];
+                            else if(headerLimpio.includes('ingeniero')) obj['Ingeniero'] = lineas[i][index];
+                            else if(headerLimpio.includes('equipo') && !headerLimpio.includes('medicion')) obj['Equipo'] = lineas[i][index];
                             else if(headerLimpio.includes('mttr')) obj['MTTR'] = lineas[i][index];
                             else if(headerLimpio.includes('fallascriticas')) obj['fallas_criticas'] = lineas[i][index];
                             else if(headerLimpio.includes('ratiopreventivo')) obj['ratio_preventivo'] = lineas[i][index];
@@ -294,24 +331,10 @@
             const select = document.getElementById('monthFilter');
             select.innerHTML = '<option value="todos">Todos los meses (Anual)</option>';
             
-            // 1. Extraer meses, limpiar espacios vacíos y pasarlos a minúsculas
-            let mesesBrutos = datosCompletos.map(item => item.Mes ? item.Mes.toString().trim().toLowerCase() : null).filter(Boolean);
-            
-            // 2. Obtener valores únicos
-            let mesesUnicos = [...new Set(mesesBrutos)];
-            
-            // 3. Orden cronológico inteligente
+            // Forzar el listado de los 12 meses siempre (independientemente si hay datos en ellos o no)
             const ordenMeses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
-            mesesUnicos.sort((a, b) => {
-                let indexA = ordenMeses.indexOf(a);
-                let indexB = ordenMeses.indexOf(b);
-                if(indexA === -1) indexA = 99; // Si el mes está mal escrito, se va al final
-                if(indexB === -1) indexB = 99;
-                return indexA - indexB;
-            });
-
-            // 4. Inyectar al HTML
-            mesesUnicos.forEach(mes => {
+            
+            ordenMeses.forEach(mes => {
                 const mesCapitalizado = mes.charAt(0).toUpperCase() + mes.slice(1);
                 select.innerHTML += `<option value="${mes}">${mesCapitalizado}</option>`;
             });
@@ -328,7 +351,15 @@
                 });
             }
 
-            if(datosFiltrados.length === 0) return; // Prevenir errores si no hay datos
+            // Actualizamos la variable global para que el modal sepa qué datos se están mostrando
+            datosActuales = datosFiltrados;
+
+            if(datosFiltrados.length === 0) {
+                // Limpiar contadores visuales si el mes está vacío
+                document.querySelectorAll('[id^="kpi-"]').forEach(el => el.innerText = '0');
+                actualizarGraficas({}, {}, {}, {}, filtroMes);
+                return; 
+            }
 
             // Variables para KPIs
             let sumMTTR = 0, sumFallas = 0, sumPrev = 0, sumCorr = 0, sumEntrega = 0, sumRefacciones = 0, sumVentas = 0;
@@ -353,8 +384,8 @@
                 sumVentas += Number(d.oportunidades_venta) || 0;
 
                 // Agrupaciones para tablas dinámicas
-                const mesRow = d.Mes ? d.Mes.toString().trim().charAt(0).toUpperCase() + d.Mes.toString().trim().slice(1) : 'S/N';
-                cargaTrabajoMap[mesRow] = (cargaTrabajoMap[mesRow] || 0) + 1;
+                const ingenieroRow = d.Ingeniero || 'No Asignado';
+                cargaTrabajoMap[ingenieroRow] = (cargaTrabajoMap[ingenieroRow] || 0) + 1;
 
                 const tipo = d['Tipo de Servicio'] || 'No Especificado';
                 tiposMap[tipo] = (tiposMap[tipo] || 0) + 1;
@@ -397,24 +428,36 @@
             Chart.defaults.plugins.tooltip.padding = 10;
             Chart.defaults.plugins.tooltip.cornerRadius = 8;
 
-            // 1. Carga de Trabajo (Barra Vertical) - Si es un mes específico, solo muestra una barra. Si es 'todos', muestra evolución.
+            // Función Helper para ordenar datos (mayor a menor) para gráficas de barras
+            const ordenarDatos = (objMap) => {
+                let arrayDeArrays = Object.entries(objMap);
+                arrayDeArrays.sort((a, b) => b[1] - a[1]); // Orden descendente
+                arrayDeArrays = arrayDeArrays.slice(0, 10); // Tomar máximo el Top 10
+                return {
+                    labels: arrayDeArrays.map(item => item[0]),
+                    data: arrayDeArrays.map(item => item[1])
+                };
+            };
+
+            // 1. Carga de Trabajo (Barra Horizontal por Ingeniero)
+            const datosCargaOrd = ordenarDatos(cargaMap);
             const ctxCarga = document.getElementById('chartCargaTrabajo').getContext('2d');
             charts.carga = new Chart(ctxCarga, {
                 type: 'bar',
                 data: {
-                    labels: Object.keys(cargaMap),
+                    labels: datosCargaOrd.labels,
                     datasets: [{
-                        label: 'Servicios',
-                        data: Object.values(cargaMap),
+                        label: 'Atenciones',
+                        data: datosCargaOrd.data,
                         backgroundColor: '#14b8a6', // brand-500
-                        borderRadius: 6,
-                        maxBarThickness: 60
+                        borderRadius: 4
                     }]
                 },
                 options: {
+                    indexAxis: 'y', // La hacemos horizontal para que los nombres encajen bien
                     responsive: true, maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
-                    scales: { y: { beginAtZero: true, grid: { color: '#f1f5f9' } }, x: { grid: { display: false } } }
+                    scales: { x: { beginAtZero: true, grid: { color: '#f1f5f9' } }, y: { grid: { display: false }, ticks: { autoSkip: false } } }
                 }
             });
 
@@ -490,6 +533,53 @@
                 }
             });
         }
+
+        // =========================================================
+        // Funcionalidad e Interacción del Modal Oportunidades
+        // =========================================================
+        document.getElementById('card-ventas').addEventListener('click', () => {
+            const modal = document.getElementById('modalOportunidades');
+            const tbody = document.getElementById('listaOportunidades');
+            const emptyMsg = document.getElementById('noOportunidades');
+            
+            tbody.innerHTML = '';
+            
+            // Buscar aquellos registros del periodo actual que tienen oportunidades de venta (> 0)
+            const oportunidades = datosActuales.filter(d => {
+                const val = d.oportunidades_venta;
+                return (Number(val) > 0) || (typeof val === 'string' && val.trim().toLowerCase() === 'si');
+            });
+            
+            if (oportunidades.length === 0) {
+                emptyMsg.classList.remove('hidden');
+                tbody.parentElement.classList.add('hidden');
+            } else {
+                emptyMsg.classList.add('hidden');
+                tbody.parentElement.classList.remove('hidden');
+                
+                // Generar filas de la tabla
+                oportunidades.forEach(op => {
+                    const tr = document.createElement('tr');
+                    tr.classList.add('hover:bg-slate-50', 'transition-colors');
+                    tr.innerHTML = `
+                        <td class="px-4 py-3 font-semibold text-brand-600 whitespace-nowrap">${op.ID || 'S/N'}</td>
+                        <td class="px-4 py-3">${op.Cliente || 'No especificado'}</td>
+                        <td class="px-4 py-3 text-slate-500 text-sm">${op.Equipo || 'No especificado'}</td>
+                        <td class="px-4 py-3">
+                            <span class="bg-slate-100 text-slate-600 border border-slate-200 px-2 py-1 rounded-md text-xs font-medium whitespace-nowrap">
+                                ${op.Ingeniero || 'No asignado'}
+                            </span>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+            modal.classList.remove('hidden');
+        });
+
+        document.getElementById('cerrarModal').addEventListener('click', () => {
+            document.getElementById('modalOportunidades').classList.add('hidden');
+        });
 
         document.getElementById('monthFilter').addEventListener('change', (e) => {
             renderizarDashboard(e.target.value);
