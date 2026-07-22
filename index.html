@@ -3,510 +3,786 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard Operativo Completo</title>
+    <title>MediCMMS - Mantenimiento e Indicadores</title>
     
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <!-- React y ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Babel -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     
+    <!-- Chart.js y PapaParse para el Dashboard de Indicadores -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+
+    <!-- FontAwesome y Google Fonts -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Configuración Custom de Tailwind para el Dashboard Oscuro -->
     <script>
         tailwind.config = {
             theme: {
                 extend: {
-                    fontFamily: { sans: ['Inter', 'sans-serif'] },
                     colors: {
-                        brand: { 50: '#f0fdfa', 100: '#ccfbf1', 500: '#14b8a6', 600: '#0d9488', 900: '#134e4a' },
-                        kpi: { blue: '#3b82f6', red: '#ef4444', green: '#10b981', orange: '#f97316', purple: '#8b5cf6' }
+                        dark: '#020617',
+                        panel: '#0f172a',
+                        primary: '#38bdf8', 
+                        success: '#10b981', 
+                        warning: '#f59e0b', 
+                        danger: '#f43f5e',  
+                        annual: '#8b5cf6',  
                     }
                 }
             }
         }
     </script>
+
     <style>
         body { font-family: 'Inter', sans-serif; }
-        .fade-in { animation: fadeIn 0.4s ease-out forwards; opacity: 0; }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(15px); }
-            to { opacity: 1; transform: translateY(0); }
+        
+        /* Estilos de Impresión */
+        @media print {
+            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; background: white; }
+            @page { size: landscape; margin: 5mm; }
+            
+            .print-hidden { display: none !important; }
+            .print-block { display: block !important; }
+            main { padding: 0 !important; margin: 0 !important; }
+            
+            /* Ajustes del CMMS */
+            .bg-slate-50 { background-color: white !important; }
+            .shadow-sm { box-shadow: none !important; border: none !important; }
+            
+            /* Ajustes del Dashboard de Indicadores */
+            .bg-dark, .bg-panel { background-color: white !important; border: none !important; border-bottom: 1px solid #cbd5e1 !important; box-shadow: none !important; }
+            .text-white { color: #0f172a !important; }
+            .text-slate-400, .text-slate-500, .text-slate-300, .text-slate-200 { color: #475569 !important; }
+            .border-slate-800, .border-slate-700 { border-color: #e2e8f0 !important; }
+            
+            .text-primary { color: #0284c7 !important; }
+            .text-danger { color: #dc2626 !important; }
+            .text-success { color: #16a34a !important; }
+            .text-warning { color: #d97706 !important; }
+            
+            .page-break-before { page-break-before: always !important; }
+            .page-break-inside-avoid { page-break-inside: avoid !important; }
+            
+            canvas { width: 100% !important; max-width: 100% !important; max-height: 250px !important; }
         }
-        .chart-wrapper { position: relative; height: 300px; width: 100%; }
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: #f1f5f9; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        
+        /* Estilos del Calendario CMMS */
+        .tabla-cal th, .tabla-cal td { border: 1px solid #1e3a8a; }
+        .tabla-cal th { background-color: #60a5fa !important; color: white !important; font-weight: bold; text-align: center; }
+        .celda-prog { background-color: #3b82f6 !important; box-shadow: inset 0 0 5px rgba(0,0,0,0.2); }
+        .celda-fuera-servicio { background-color: #ef4444 !important; box-shadow: inset 0 0 5px rgba(0,0,0,0.2); }
+        .celda-ejec { background-color: #22c55e !important; position: relative; }
+        .celda-ejec::after { content: '✓'; color: white; font-size: 14px; font-weight: bold; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+        .celda-interactiva { min-width: 25px; height: 25px; text-align: center; cursor: pointer; transition: background-color 0.2s; }
+        .celda-interactiva:hover { background-color: #bfdbfe !important; }
+
+        /* Scrollbars para Dashboard Oscuro */
+        .dark-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+        .dark-scroll::-webkit-scrollbar-track { background: #0f172a; }
+        .dark-scroll::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        .dark-scroll::-webkit-scrollbar-thumb:hover { background: #475569; }
     </style>
 </head>
-<body class="bg-slate-50 text-slate-800 min-h-screen pb-12">
+<body class="bg-slate-50">
+    <div id="root"></div>
 
-    <div id="loadingBanner" class="max-w-7xl mx-auto px-4 mt-6 fade-in">
-        <div class="bg-blue-50 border-l-4 border-blue-500 text-blue-700 p-4 rounded-xl shadow-sm flex items-center">
-            <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-            <p class="font-bold">Conectando con Google Sheets y descargando datos...</p>
-        </div>
-    </div>
+     <script type="text/babel">
+        const { useState, useMemo, useEffect, useRef } = React;
 
-    <div id="errorBanner" class="hidden max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 fade-in">
-        <div class="bg-red-50 border-l-4 border-red-500 text-red-700 p-4 rounded-xl shadow-sm">
-            <div class="flex items-center">
-                <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                <p class="font-bold text-lg">Error al cargar información</p>
-            </div>
-            <p id="errorTexto" class="mt-2 font-medium">Revisa la consola (F12) para más detalles.</p>
-        </div>
-    </div>
+        // ============================================================================
+        // CONFIGURACIÓN GLOBAL
+        // ============================================================================
+        const GOOGLE_SHEETS_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbwsPJJ9SQdgz3l8BEDMwpcOT0hYhrfLL3qIdTAYJ7q_Pji5ZBzu_Pt-zmvqcmtokVKi/exec"; 
+        const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTpv30jyddCIL2Zwwkz_zlEk52O_Aa1iioBPZv90ZnjJ4uy7grVHbIcJQgIRP6xDvLJ53UJ396WfcZE/pub?output=csv";
 
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" id="dashboardContent" style="display: none;">
-        
-        <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 bg-white p-6 rounded-2xl shadow-sm border border-slate-100 fade-in">
-            <div class="mb-4 lg:mb-0">
-                <h1 class="text-3xl font-bold text-slate-900 tracking-tight">Métricas Operativas</h1>
-                <p class="text-sm text-slate-500 mt-1">Análisis de rendimiento, cargas de trabajo y oportunidades</p>
-            </div>
-            
-            <div class="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
-                <div class="relative w-full sm:w-56">
-                    <select id="monthFilter" class="appearance-none bg-slate-50 border border-slate-200 text-slate-900 text-sm font-medium rounded-xl focus:ring-brand-500 focus:border-brand-500 block w-full p-3 pr-10 cursor-pointer outline-none">
-                        <option value="todos">Todos los meses (Anual)</option>
-                        <option value="enero">Enero</option>
-                        <option value="febrero">Febrero</option>
-                        <option value="marzo">Marzo</option>
-                        <option value="abril">Abril</option>
-                        <option value="mayo">Mayo</option>
-                        <option value="junio">Junio</option>
-                        <option value="julio">Julio</option>
-                        <option value="agosto">Agosto</option>
-                        <option value="septiembre">Septiembre</option>
-                        <option value="octubre">Octubre</option>
-                        <option value="noviembre">Noviembre</option>
-                        <option value="diciembre">Diciembre</option>
-                    </select>
-                    <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-500">
-                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-                    </div>
-                </div>
-                <button id="btnAnual" class="bg-slate-900 hover:bg-slate-800 text-white font-semibold py-3 px-6 rounded-xl shadow-sm transition-all duration-200 flex items-center justify-center gap-2">
-                    Ver Todo el Año
-                </button>
-            </div>
-        </div>
+        const mxnFormatter = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
-        <h2 class="text-lg font-bold text-slate-800 mb-4 px-2">Indicadores Clave de Rendimiento (KPIs)</h2>
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            
-            <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between">
-                <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-2">Ratio Preventivo</div>
-                <div class="text-3xl font-bold text-kpi-blue" id="kpi-prev">0%</div>
-            </div>
+        const motivosOptions = [
+            "PENDIENTE DE CALIBRACION", "EN MANTENIMIENTO PREVENTIVO", "EN REPARACION", 
+            "EN ESPERA DE REFACCIONES", "DAÑO SIN POSIBILIDAD DE REPARACION", "PRESTADO", 
+            "EN CAMBIO O SUSTITUCION", "BAJA DEFINITIVA"
+        ];
 
-            <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between">
-                <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-2">Ratio Correctivo</div>
-                <div class="text-3xl font-bold text-kpi-orange" id="kpi-corr">0%</div>
-            </div>
+        const frecuenciasOptions = [
+            { id: '', label: 'No aplica / Sin definir' }, { id: 'M', label: 'M - MENSUAL' }, 
+            { id: 'B', label: 'B - BIMESTRAL' }, { id: 'T', label: 'T - TRIMESTRAL' }, 
+            { id: 'C', label: 'C - CUATRIMESTRAL' }, { id: 'S', label: 'S - SEMESTRAL' }, 
+            { id: 'A', label: 'A - ANUAL' }
+        ];
 
-            <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between">
-                <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-2">MTTR Promedio</div>
-                <div class="flex items-end gap-2">
-                    <div class="text-3xl font-bold text-slate-800" id="kpi-mttr">0</div>
-                    <span class="text-sm text-slate-500 font-medium mb-1">min</span>
-                </div>
-            </div>
+        const mesesAbreviados = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
 
-            <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between">
-                <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-2">Tasa de Entrega</div>
-                <div class="text-3xl font-bold text-kpi-green" id="kpi-entrega">0%</div>
-            </div>
+        const obtenerMesesProgramados = (ultimoMantenimiento, frecuencia, targetYear) => {
+            const mesesProgramados = new Set();
+            if (!ultimoMantenimiento || !frecuencia) return mesesProgramados;
+            const [uYear, uMonth] = ultimoMantenimiento.split('-').map(Number);
+            if (!uYear || !uMonth) return mesesProgramados;
 
-            <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between">
-                <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-2">Tasa Refacciones</div>
-                <div class="text-3xl font-bold text-slate-800" id="kpi-refacciones">0%</div>
-            </div>
+            let interval = frecuencia === 'M'?1 : frecuencia==='B'?2 : frecuencia==='T'?3 : frecuencia==='C'?4 : frecuencia==='S'?6 : frecuencia==='A'?12 : 0;
+            if (interval === 0) return mesesProgramados;
 
-            <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between">
-                <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-2">Fallas Críticas</div>
-                <div class="text-3xl font-bold text-kpi-red" id="kpi-fallas">0%</div>
-            </div>
-
-            <div id="card-ventas" class="bg-white rounded-2xl p-5 shadow-sm border border-brand-100 flex flex-col justify-between md:col-span-2 cursor-pointer hover:shadow-md hover:border-brand-400 transition-all group">
-                <div class="flex justify-between items-start mb-2">
-                    <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider group-hover:text-brand-600 transition-colors">Oportunidades de Venta (Clic para Detalle)</div>
-                    <svg class="w-4 h-4 text-slate-400 group-hover:text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-                </div>
-                <div class="flex items-end gap-2">
-                    <div class="text-3xl font-bold text-kpi-purple" id="kpi-ventas">0</div>
-                    <span class="text-sm text-slate-500 font-medium mb-1">cotizaciones detectadas</span>
-                </div>
-            </div>
-        </div>
-
-        <h2 class="text-lg font-bold text-slate-800 mb-4 px-2">Estatus de Equipos Atendidos</h2>
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
-            <div class="bg-slate-800 rounded-2xl p-5 shadow-sm text-white flex flex-col justify-between">
-                <div class="text-slate-300 text-xs font-semibold uppercase tracking-wider mb-2">Equipos en Garantía</div>
-                <div class="text-3xl font-bold" id="ind-garantia">0</div>
-            </div>
-            <div class="bg-slate-800 rounded-2xl p-5 shadow-sm text-white flex flex-col justify-between">
-                <div class="text-slate-300 text-xs font-semibold uppercase tracking-wider mb-2">Equipos en Contrato</div>
-                <div class="text-3xl font-bold" id="ind-contrato">0</div>
-            </div>
-            <div class="bg-slate-100 rounded-2xl p-5 shadow-sm border border-slate-200 flex flex-col justify-between">
-                <div class="text-slate-600 text-xs font-semibold uppercase tracking-wider mb-2">Fuera de Servicio</div>
-                <div class="text-3xl font-bold text-slate-800" id="ind-fuera">0</div>
-            </div>
-            <div class="bg-slate-100 rounded-2xl p-5 shadow-sm border border-slate-200 flex flex-col justify-between">
-                <div class="text-slate-600 text-xs font-semibold uppercase tracking-wider mb-2">A Prueba (8 Días)</div>
-                <div class="text-3xl font-bold text-slate-800" id="ind-prueba">0</div>
-            </div>
-        </div>
-
-        <h2 class="text-lg font-bold text-slate-800 mb-4 px-2">Análisis Dinámico (Tablas Dinámicas)</h2>
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
-            <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-                <h3 class="text-base font-bold text-slate-800 mb-4">Carga de Trabajo (Por Ingeniero)</h3>
-                <div class="chart-wrapper"><canvas id="chartCargaTrabajo"></canvas></div>
-            </div>
-
-            <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-                <h3 class="text-base font-bold text-slate-800 mb-4">Distribución por Tipo de Servicio</h3>
-                <div class="chart-wrapper"><canvas id="chartTipos"></canvas></div>
-            </div>
-
-            <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-                <h3 class="text-base font-bold text-slate-800 mb-4">Principales Clientes</h3>
-                <div class="chart-wrapper"><canvas id="chartClientes"></canvas></div>
-            </div>
-
-            <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-                <h3 class="text-base font-bold text-slate-800 mb-4">Principales Marcas</h3>
-                <div class="chart-wrapper"><canvas id="chartMarcas"></canvas></div>
-            </div>
-        </div>
-    </div>
-
-    <div id="modalOportunidades" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden flex items-center justify-center z-50 fade-in">
-        <div class="bg-white rounded-2xl w-11/12 max-w-5xl max-h-[85vh] overflow-hidden shadow-2xl flex flex-col">
-            <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                <h3 class="text-lg font-bold text-slate-800">Detalle de Oportunidades de Venta</h3>
-                <button id="cerrarModal" class="text-slate-400 hover:text-slate-600 focus:outline-none bg-white rounded-full p-1 shadow-sm transition-colors hover:bg-slate-100">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                </button>
-            </div>
-            <div class="p-6 overflow-y-auto flex-1 bg-slate-50/50">
-                <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
-                    <table class="min-w-full divide-y divide-slate-200">
-                        <thead class="bg-slate-50">
-                            <tr>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Orden (ID)</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Cliente / Unidad</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Equipo</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Ingeniero</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Motivo</th>
-                            </tr>
-                        </thead>
-                        <tbody id="listaOportunidades" class="divide-y divide-slate-100 text-sm text-slate-700 bg-white">
-                            <!-- Datos Inyectados con JS -->
-                        </tbody>
-                    </table>
-                </div>
-                <div id="noOportunidades" class="text-center py-10 text-slate-500 hidden flex flex-col items-center">
-                    <svg class="w-12 h-12 text-slate-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path></svg>
-                    <p>No hay oportunidades de venta detectadas en este periodo.</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        Chart.register(ChartDataLabels);
-
-        let charts = { carga: null, tipos: null, clientes: null, marcas: null };
-        let datosAgrupadosPorMes = []; 
-        let datosDetalleOrdenes = [];  
-
-        const palette = ['#14b8a6', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444', '#64748b', '#0ea5e9'];
-
-        const csvUrlDashboard = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTX8QjDtAKXCfIUI4Uc2FENvOfBh-XCoxjBGWiTxRkqHQ3YjnvY3TnZf7FqJsn2o3yAyhV0ge78nJea/pub?gid=570492353&single=true&output=csv';
-        const csvUrlCorpus = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTX8QjDtAKXCfIUI4Uc2FENvOfBh-XCoxjBGWiTxRkqHQ3YjnvY3TnZf7FqJsn2o3yAyhV0ge78nJea/pub?gid=680282818&single=true&output=csv';
-        
-        async function cargarDatos() {
-            try {
-                const [respDashboard, respCorpus] = await Promise.all([
-                    fetch(csvUrlDashboard + '&t=' + new Date().getTime()),
-                    fetch(csvUrlCorpus + '&t=' + new Date().getTime())
-                ]);
-
-                if (!respDashboard.ok || !respCorpus.ok) throw new Error("Fallo en la red al descargar los documentos.");
-
-                const csvTextoDashboard = await respDashboard.text();
-                const csvTextoCorpus = await respCorpus.text();
-
-                Papa.parse(csvTextoDashboard, {
-                    header: true, skipEmptyLines: true,
-                    transformHeader: function(h) { return h.trim().toLowerCase(); },
-                    complete: function(results) { datosAgrupadosPorMes = results.data; }
-                });
-
-                Papa.parse(csvTextoCorpus, {
-                    header: true, skipEmptyLines: true,
-                    transformHeader: function(h) { return h.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""); },
-                    complete: function(results) { procesarDatosCorpus(results.data); }
-                });
-
-                setTimeout(() => {
-                    document.getElementById('loadingBanner').style.display = 'none';
-                    document.getElementById('dashboardContent').style.display = 'block';
-                    renderizarDashboard('todos'); 
-                }, 500);
-
-            } catch (error) {
-                mostrarError("Error de Conexión: " + error.message);
+            let startMonth = uMonth - 1; 
+            let startYear = uYear;
+            while (startYear >= targetYear && interval > 0) {
+                startMonth -= interval;
+                while (startMonth < 0) { startMonth += 12; startYear -= 1; }
             }
-        }
 
-        function mostrarError(mensaje) {
-            document.getElementById('loadingBanner').style.display = 'none';
-            document.getElementById('errorBanner').classList.remove('hidden');
-            document.getElementById('errorTexto').innerText = mensaje;
-        }
-
-        function procesarDatosCorpus(data) {
-            datosDetalleOrdenes = [];
-            
-            data.forEach(row => {
-                let obj = {};
-                
-                obj['Mes'] = (row['mes'] || 'sin mes').toLowerCase().trim();
-                obj['ID'] = row['id unico'] || row['submission id'] || row['idunico'] || 'S/N';
-                obj['Ingeniero'] = row['ingeniero de servicio'] || row['ingeniero'] || row['tecnico'] || 'Sin Asignar';
-                obj['Equipo'] = row['equipo:'] || row['equipo'] || 'Sin Equipo';
-                obj['Tipo de Servicio'] = row['tipo de servicio o mantenimiento'] || '';
-                obj['Cliente'] = row['unidad:'] || row['unidad'] || row['cliente'] || 'Sin Cliente';
-                obj['Marca'] = row['marca:'] || row['marca'] || 'Sin Marca';
-
-                let estatusRaw = (row['estatus de seguimiento'] || row['escribauna'] || '').toUpperCase().trim();
-                let estatusLimpio = estatusRaw.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-                
-                obj['estatus_seguimiento_limpio'] = estatusLimpio;
-
-                obj['oportunidad'] = false;
-                obj['motivo_venta'] = '';
-                
-                // Filtro estricto: Solo si dice "REQUIERE COTIZACION"
-                if (estatusLimpio.includes('REQUIERE COTIZACION')) {
-                    obj['oportunidad'] = true;
-                    let nota = (row['observaciones:'] || row['observaciones'] || row['detalle de funcionalidad:'] || '').trim();
-                    obj['motivo_venta'] = nota !== '' ? nota : estatusRaw;
-                }
-
-                if (obj['ID'] !== 'S/N') {
-                    datosDetalleOrdenes.push(obj);
-                }
-            });
-        }
-
-        const parsePercent = (val) => {
-            if (!val) return 0;
-            if (typeof val === 'number') return val;
-            let num = parseFloat(val.replace(/%/g, '').trim());
-            return isNaN(num) ? 0 : num;
+            let simMonth = startMonth;
+            let simYear = startYear;
+            for (let i = 0; i < 100; i++) {
+                simMonth += interval;
+                while (simMonth > 11) { simMonth -= 12; simYear += 1; }
+                if (simYear === targetYear) { mesesProgramados.add(simMonth); }
+                else if (simYear > targetYear) { break; }
+            }
+            return mesesProgramados;
         };
 
-        const formatearKPI = (valor, esPorcentaje = false) => {
-             if (esPorcentaje) return valor.toFixed(1) + '%';
-             return valor.toFixed(1);
+        const calcularProximoMantenimiento = (fechaUltimo, frecuencia) => {
+            if (!fechaUltimo || !frecuencia) return '';
+            const [yearStr, monthStr] = fechaUltimo.split('-');
+            let date = new Date(parseInt(yearStr), parseInt(monthStr) - 1, 1);
+            if (isNaN(date.getTime())) return '';
+            let meses = frecuencia === 'M'?1 : frecuencia==='B'?2 : frecuencia==='T'?3 : frecuencia==='C'?4 : frecuencia==='S'?6 : frecuencia==='A'?12 : 0;
+            date.setMonth(date.getMonth() + meses);
+            const m = date.getMonth() + 1;
+            return `${date.getFullYear()}-${m < 10 ? '0' : ''}${m}`; 
         };
 
-        function renderizarDashboard(filtroMes) {
-            let sumMTTR = 0, sumFallas = 0, sumPrev = 0, sumCorr = 0, sumEntrega = 0, sumRefac = 0;
-            let kpiTotalItems = 0;
+        const limpiarHistorial = (str) => {
+            if (!str) return [];
+            return String(str).split(',').map(s => {
+                const match = s.match(/(\d{4})-(\d{2})/);
+                return match ? match[0] : null;
+            }).filter(Boolean);
+        };
 
-            let datosFiltradosKPI = datosAgrupadosPorMes;
-            if (filtroMes !== 'todos') {
-                datosFiltradosKPI = datosAgrupadosPorMes.filter(item => (item.mes || '').toLowerCase().trim() === filtroMes);
+        const verificarCumplimiento = (historialEjecuciones, targetMonthIndex, targetYear) => {
+            if (!historialEjecuciones) return false;
+            const ejecutados = limpiarHistorial(historialEjecuciones);
+            const formatYM = (y, m) => `${y}-${(m + 1).toString().padStart(2, '0')}`;
+            
+            let pMonth = targetMonthIndex - 1, pYear = targetYear;
+            if (pMonth < 0) { pMonth = 11; pYear--; }
+            
+            let nMonth = targetMonthIndex + 1, nYear = targetYear;
+            if (nMonth > 11) { nMonth = 0; nYear++; }
+
+            return ejecutados.includes(formatYM(targetYear, targetMonthIndex)) || ejecutados.includes(formatYM(pYear, pMonth)) || ejecutados.includes(formatYM(nYear, nMonth));
+        };
+
+        // ============================================================================
+        // DATOS MOCK PARA MÓDULO DE CLIENTES
+        // ============================================================================
+        const mockClientes = [
+            {
+                id: 1, 
+                nombre: "Hospital San Ángel Inn Patriotismo", 
+                direccion: "Av. Patriotismo 67, San Juan, Benito Juárez, CDMX", 
+                telefono: "55 5278 2300", 
+                correo: "ingenieria@hsai.mx",
+                ingeniero: "Ing. Carlos Mendoza", 
+                serviciosEjecutados: 145,
+                distribucion: { preventivos: 120, correctivos: 15, calibraciones: 5, asistencias: 5 }
+            },
+            {
+                id: 2, 
+                nombre: "Hospital Ángeles Metropolitano", 
+                direccion: "Tlacotalpan 59, Roma Sur, Cuauhtémoc, CDMX", 
+                telefono: "55 5265 1800", 
+                correo: "biomedica.metropolitano@angeles.mx",
+                ingeniero: "Ing. Ana Ruiz", 
+                serviciosEjecutados: 89,
+                distribucion: { preventivos: 60, correctivos: 20, calibraciones: 7, asistencias: 2 }
             }
+        ];
 
-            if (datosFiltradosKPI.length > 0) {
-                datosFiltradosKPI.forEach(d => {
-                    sumPrev += parsePercent(d.ratio_preventivo);
-                    sumCorr += parsePercent(d.ratio_corectivo || d.ratio_correctivo); 
-                    sumMTTR += Number(d.mttr) || 0;
-                    sumEntrega += parsePercent(d.tasa_entrega);
-                    sumRefac += parsePercent(d.tasa_refacciones);
-                    sumFallas += parsePercent(d.fallas_criticas);
-                    kpiTotalItems++;
+        // Mocks de tablas para Preventivos y Correctivos
+        const mockPreventivos = [
+            { id: 1, tipo: 'Mantenimiento Preventivo', nombre: 'Máquina de Anestesia', marca: 'Drager', modelo: 'Fabius GS', serie: 'ARUM-0012', inventario: 'INV-1001', area: 'Quirófano 1', fechaEjecucion: '2023-11' },
+            { id: 2, tipo: 'Calibración', nombre: 'Monitor de Signos Vitales', marca: 'Philips', modelo: 'IntelliVue MP50', serie: 'PH-9923', inventario: 'INV-1022', area: 'Urgencias', fechaEjecucion: '2024-01' },
+            { id: 3, tipo: 'Mantenimiento Preventivo', nombre: 'Desfibrilador', marca: 'Zoll', modelo: 'M Series', serie: 'ZL-4451', inventario: 'INV-1045', area: 'Terapia Intensiva', fechaEjecucion: '2023-10' }
+        ];
+
+        const mockCorrectivos = [
+            { id: 1, tipo: 'Mantenimiento Correctivo', orden: 'OS-2024-001', nombre: 'Electrocardiógrafo', marca: 'GE', modelo: 'MAC 2000', serie: 'GE-ECG-998', fechaEjecucion: '2024-02' },
+            { id: 2, tipo: 'Asistencia', orden: 'OS-2024-012', nombre: 'Bomba de Infusión', marca: 'Baxter', modelo: 'Sigma Spectrum', serie: 'BX-8871', fechaEjecucion: '2024-01' }
+        ];
+
+
+        // ============================================================================
+        // COMPONENTE: DASHBOARD DE INDICADORES (Oscuro)
+        // ============================================================================
+        const IndicadoresDashboard = ({ equipos }) => {
+            // (Se mantiene el código original del dashboard)
+            const [dataSet, setDataSet] = useState({});
+            const [historico, setHistorico] = useState({ meses: [], mp: [], gastoTotal: [] });
+            const [currentMonth, setCurrentMonth] = useState('');
+            const [isAnnualView, setIsAnnualView] = useState(false);
+            const [isLoading, setIsLoading] = useState(true);
+            const [error, setError] = useState(false);
+            const [dashYear, setDashYear] = useState(new Date().getFullYear());
+
+            const ratioChartRef = useRef(null);
+            const downtimeChartRef = useRef(null);
+            const budgetChartRef = useRef(null);
+            const trendChartRef = useRef(null);
+            const expenseTrendChartRef = useRef(null);
+            const chartInstances = useRef({});
+
+            useEffect(() => {
+                Papa.parse(GOOGLE_SHEET_CSV_URL, {
+                    download: true, header: true,
+                    complete: (results) => { procesarDatos(results.data); setIsLoading(false); },
+                    error: () => { setError(true); setIsLoading(false); }
                 });
+            }, []);
 
-                let divisorPromedio = filtroMes === 'todos' ? kpiTotalItems : 1;
-
-                const setVal = (id, val) => { if(document.getElementById(id)) document.getElementById(id).innerText = val; };
-                
-                setVal('kpi-prev', formatearKPI(sumPrev / divisorPromedio, true));
-                setVal('kpi-corr', formatearKPI(sumCorr / divisorPromedio, true));
-                setVal('kpi-mttr', formatearKPI(sumMTTR / divisorPromedio, false));
-                setVal('kpi-entrega', formatearKPI(sumEntrega / divisorPromedio, true));
-                setVal('kpi-refacciones', formatearKPI(sumRefac / divisorPromedio, true));
-                setVal('kpi-fallas', formatearKPI(sumFallas / divisorPromedio, true));
-
-            } else {
-                 document.querySelectorAll('[id^="kpi-"]').forEach(el => {
-                     if(!el.id.includes('ventas')) el.innerText = el.id.includes('mttr') ? '0' : '0%';
-                 });
-            }
-
-            let datosFiltradosCorpus = datosDetalleOrdenes;
-            if (filtroMes !== 'todos') {
-                datosFiltradosCorpus = datosDetalleOrdenes.filter(item => item.Mes === filtroMes);
-            }
-
-            // Sincronización perfecta de las Ventas calculadas de la tabla
-            const conteoVentasReales = datosFiltradosCorpus.filter(d => d.oportunidad).length;
-            if(document.getElementById('kpi-ventas')) document.getElementById('kpi-ventas').innerText = conteoVentasReales;
-
-            let cargaMap = {}, tiposMap = {}, clientesMap = {}, marcasMap = {};
-            let countGarantia = 0, countContrato = 0, countFuera = 0, countPrueba = 0;
-
-            datosFiltradosCorpus.forEach(d => {
-                if (d.estatus_seguimiento_limpio) {
-                    if (d.estatus_seguimiento_limpio.includes('GARANTIA')) countGarantia++;
-                    if (d.estatus_seguimiento_limpio.includes('CONTRATO')) countContrato++;
-                    if (d.estatus_seguimiento_limpio.includes('FUERA DE SERVICIO')) countFuera++;
-                    if (d.estatus_seguimiento_limpio.includes('PRUEBA') || d.estatus_seguimiento_limpio.includes('8 DIAS')) countPrueba++;
-                }
-
-                if(d.Ingeniero && d.Ingeniero !== 'Sin Asignar') {
-                    cargaMap[d.Ingeniero] = (cargaMap[d.Ingeniero] || 0) + 1;
-                }
-                
-                if(d['Tipo de Servicio']) tiposMap[d['Tipo de Servicio']] = (tiposMap[d['Tipo de Servicio']] || 0) + 1;
-                clientesMap[d.Cliente] = (clientesMap[d.Cliente] || 0) + 1;
-                marcasMap[d.Marca] = (marcasMap[d.Marca] || 0) + 1;
-            });
-
-            if(document.getElementById('ind-garantia')) document.getElementById('ind-garantia').innerText = countGarantia;
-            if(document.getElementById('ind-contrato')) document.getElementById('ind-contrato').innerText = countContrato;
-            if(document.getElementById('ind-fuera')) document.getElementById('ind-fuera').innerText = countFuera;
-            if(document.getElementById('ind-prueba')) document.getElementById('ind-prueba').innerText = countPrueba;
-
-            actualizarGraficas(cargaMap, tiposMap, clientesMap, marcasMap);
-            configurarModalOportunidades(datosFiltradosCorpus);
-        }
-
-        function actualizarGraficas(carga, tipos, clientes, marcas) {
-            Object.values(charts).forEach(c => { if (c) c.destroy(); });
-            Chart.defaults.font.family = "'Inter', sans-serif";
-
-            const toData = (objMap) => {
-                let arr = Object.entries(objMap).sort((a, b) => b[1] - a[1]).slice(0, 10);
-                return { labels: arr.map(i => i[0]), data: arr.map(i => i[1]) };
+            const obtenerMesAnterior = () => {
+                const meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+                let mesIndex = new Date().getMonth() - 1; 
+                if (mesIndex < 0) mesIndex = 11; 
+                return meses[mesIndex];
             };
 
-            const datosCarga = toData(carga);
-            if(document.getElementById('chartCargaTrabajo')) {
-                charts.carga = new Chart(document.getElementById('chartCargaTrabajo'), {
-                    type: 'bar',
-                    data: { labels: datosCarga.labels, datasets: [{ data: datosCarga.data, backgroundColor: '#14b8a6', borderRadius: 4 }] },
-                    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, datalabels: { display: false } } }
-                });
-            }
+            const procesarDatos = (rows) => {
+                let tempDataSet = {}; 
+                let histMeses = [], histMP = [], histGasto = [];
 
-            if(document.getElementById('chartTipos')) {
-                charts.tipos = new Chart(document.getElementById('chartTipos'), {
-                    type: 'doughnut',
-                    data: { labels: Object.keys(tipos), datasets: [{ data: Object.values(tipos), backgroundColor: palette }] },
-                    options: { 
-                        responsive: true, maintainAspectRatio: false, cutout: '50%', 
-                        plugins: { 
-                            legend: { position: 'right' },
-                            datalabels: {
-                                color: '#ffffff', font: { weight: 'bold' },
-                                formatter: (value, ctx) => {
-                                    let datasets = ctx.chart.data.datasets;
-                                    if (datasets.indexOf(ctx.dataset) === datasets.length - 1) {
-                                        let sum = 0; datasets[0].data.map(data => { sum += data; });
-                                        return Math.round((value / sum) * 100) + '%';
-                                    } else { return value; }
-                                }
-                            }
-                        } 
+                rows.forEach(row => {
+                    const mes = String(row.mes || '').trim().toLowerCase();
+                    if (!mes) return;
+                    const mesFormateado = mes.charAt(0).toUpperCase() + mes.slice(1);
+
+                    if (!tempDataSet[mes]) {
+                        const raw = {
+                            mp: Number(row.mp_cumplimiento) || 0, mttr: Number(row.mttr) || 0,
+                            downReso: Number(row.downtime_resonancia) || 0, downTomo: Number(row.downtime_tomografia) || 0, downHemo: Number(row.downtime_hemodinamia) || 0, downRayos: Number(row.downtime_rayos_x) || 0,
+                            presTotalAsig: Number(row.presupuesto_total_asig) || 100, presTotalEjer: Number(row.presupuesto_total_ejer) || 0,
+                            presMttoAsig: Number(row.presupuesto_mtto_asig) || 100, presMttoEjer: Number(row.presupuesto_mtto_ejer) || 0,
+                            ratioMP: Number(row.ratio_mp) || 0, ratioMC: Number(row.ratio_mc) || 0
+                        };
+
+                        histMeses.push(mesFormateado); histMP.push(raw.mp); histGasto.push(raw.presTotalEjer);
+                        const totalDowntime = raw.downReso + raw.downTomo + raw.downHemo + raw.downRayos;
+                        const pctTotal = (raw.presTotalEjer / raw.presTotalAsig) * 100;
+                        const pctMtto = (raw.presMttoEjer / raw.presMttoAsig) * 100;
+
+                        tempDataSet[mes] = {
+                            raw, kpis: { mp_cumplimiento: raw.mp, mttr: raw.mttr, downtime: totalDowntime, budget_total: pctTotal, budget_mxn: raw.presTotalEjer },
+                            finanzas: { asigTotal: raw.presTotalAsig, ejerTotal: raw.presTotalEjer, asigMtto: raw.presMttoAsig, ejerMtto: raw.presMttoEjer },
+                            charts: { ratio_mp: raw.ratioMP, ratio_mc: raw.ratioMC, downtime_equipos: [raw.downReso, raw.downTomo, raw.downHemo, raw.downRayos], budget_pct: [pctTotal, pctMtto] },
+                            retos: []
+                        };
+                    }
+
+                    for (let i = 1; i <= 5; i++) {
+                        let titulo = row[`reto${i}_titulo`]; let desc = row[`reto${i}_desc`]; let tipo = row[`reto${i}_tipo`];
+                        if (titulo && String(titulo).trim() !== "") {
+                            let tipoClean = String(tipo || 'primary').trim();
+                            let iconClass = tipoClean === 'danger' ? 'fa-triangle-exclamation' : (tipoClean === 'warning' ? 'fa-bolt' : (tipoClean === 'success' ? 'fa-check-double' : 'fa-thumbtack'));
+                            tempDataSet[mes].retos.push({ tipo: tipoClean, icon: iconClass, titulo: String(titulo).trim(), desc: String(desc || '').trim() });
+                        }
                     }
                 });
-            }
 
-            const datosCl = toData(clientes);
-            if(document.getElementById('chartClientes')) {
-                charts.clientes = new Chart(document.getElementById('chartClientes'), {
-                    type: 'bar',
-                    data: { labels: datosCl.labels, datasets: [{ data: datosCl.data, backgroundColor: '#3b82f6', borderRadius: 4 }] },
-                    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, datalabels: { display: false } } }
-                });
-            }
+                setDataSet(tempDataSet); setHistorico({ meses: histMeses, mp: histMP, gastoTotal: histGasto });
+                let keys = Object.keys(tempDataSet);
+                if (keys.length > 0) { let mesIdeal = obtenerMesAnterior(); setCurrentMonth(tempDataSet[mesIdeal] ? mesIdeal : keys[keys.length - 1]); }
+            };
 
-            const datosMc = toData(marcas);
-            if(document.getElementById('chartMarcas')) {
-                charts.marcas = new Chart(document.getElementById('chartMarcas'), {
-                    type: 'bar',
-                    data: { labels: datosMc.labels, datasets: [{ data: datosMc.data, backgroundColor: '#8b5cf6', borderRadius: 4 }] },
-                    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, datalabels: { display: false } } }
-                });
-            }
-        }
-
-        function configurarModalOportunidades(datosFiltradosCorpus) {
-            const btnCard = document.getElementById('card-ventas');
-            if(!btnCard) return;
-            
-            const newBtnCard = btnCard.cloneNode(true);
-            btnCard.parentNode.replaceChild(newBtnCard, btnCard);
-
-            newBtnCard.addEventListener('click', () => {
-                const tbody = document.getElementById('listaOportunidades');
-                tbody.innerHTML = '';
-                
-                const oportunidades = datosFiltradosCorpus.filter(d => d.oportunidad);
-                
-                if (oportunidades.length === 0) {
-                    document.getElementById('noOportunidades').classList.remove('hidden');
-                    tbody.parentElement.classList.add('hidden');
+            const currentData = useMemo(() => {
+                if (Object.keys(dataSet).length === 0) return null;
+                if (isAnnualView) {
+                    let sumMP = 0, sumMTTR = 0, count = 0, sumDown = [0,0,0,0], sumAsigTotal = 0, sumEjerTotal = 0, sumAsigMtto = 0, sumEjerMtto = 0, sumRatioMP = 0, sumRatioMC = 0;
+                    Object.values(dataSet).forEach(d => {
+                        let r = d.raw; sumMP += r.mp; sumMTTR += r.mttr;
+                        sumDown[0] += r.downReso; sumDown[1] += r.downTomo; sumDown[2] += r.downHemo; sumDown[3] += r.downRayos;
+                        sumAsigTotal += r.presTotalAsig; sumEjerTotal += r.presTotalEjer; sumAsigMtto += r.presMttoAsig; sumEjerMtto += r.presMttoEjer;
+                        sumRatioMP += r.ratioMP; sumRatioMC += r.ratioMC; count++;
+                    });
+                    return {
+                        isAnnual: true, count,
+                        kpis: { mp: (sumMP/count).toFixed(1), mttr: (sumMTTR/count).toFixed(1), downtime: sumDown.reduce((a,b)=>a+b, 0), bgTotal: sumAsigTotal ? ((sumEjerTotal/sumAsigTotal)*100) : 0, bgMxn: sumEjerTotal },
+                        finanzas: { asigTotal: sumAsigTotal, ejerTotal: sumEjerTotal, asigMtto: sumAsigMtto, ejerMtto: sumEjerMtto },
+                        charts: { ratio_mp: sumRatioMP/count, ratio_mc: sumRatioMC/count, downtime_equipos: sumDown, budget_pct: [sumAsigTotal ? ((sumEjerTotal/sumAsigTotal)*100) : 0, sumAsigMtto ? ((sumEjerMtto/sumAsigMtto)*100) : 0] },
+                        retos: []
+                    };
                 } else {
-                    document.getElementById('noOportunidades').classList.add('hidden');
-                    tbody.parentElement.classList.remove('hidden');
-                    
-                    oportunidades.forEach(op => {
-                        const tr = document.createElement('tr');
-                        tr.classList.add('hover:bg-slate-50', 'transition-colors');
-                        // Se mejoró el texto de la última celda con whitespace-normal y break-words para que no se corte
-                        tr.innerHTML = `
-                            <td class="px-4 py-3 font-bold text-brand-600 whitespace-nowrap">${op.ID}</td>
-                            <td class="px-4 py-3 text-slate-800 font-medium">${op.Cliente}</td>
-                            <td class="px-4 py-3 text-slate-500">${op.Equipo}</td>
-                            <td class="px-4 py-3"><span class="bg-slate-100 text-slate-600 px-2 py-1 rounded-md text-xs font-bold border border-slate-200">${op.Ingeniero}</span></td>
-                            <td class="px-4 py-3 text-xs text-slate-500 italic whitespace-normal min-w-[250px] break-words">${op.motivo_venta}</td>
-                        `;
-                        tbody.appendChild(tr);
+                    if (!currentMonth || !dataSet[currentMonth]) return null;
+                    return { isAnnual: false, kpis: dataSet[currentMonth].kpis, finanzas: dataSet[currentMonth].finanzas, charts: dataSet[currentMonth].charts, retos: dataSet[currentMonth].retos };
+                }
+            }, [dataSet, currentMonth, isAnnualView]);
+
+            const monthlyCompliance = useMemo(() => {
+                if (!equipos || equipos.length === 0) return [];
+                return mesesAbreviados.map((nombreMes, monthIndex) => {
+                    let programados = 0, cumplidos = 0;
+                    equipos.forEach(equipo => {
+                        if (equipo.motivoFueraServicio === 'BAJA DEFINITIVA') return;
+                        const mesesProgramados = obtenerMesesProgramados(equipo.ultimoMantenimiento, equipo.frecuenciaMantenimiento, dashYear);
+                        if (mesesProgramados.has(monthIndex)) {
+                            if (equipo.estatus !== 'Fuera de Servicio') {
+                                programados++;
+                                if (verificarCumplimiento(equipo.historialEjecuciones, monthIndex, dashYear)) { cumplidos++; }
+                            }
+                        }
+                    });
+                    return { mes: nombreMes, programados, cumplidos, pct: programados === 0 ? 100 : Math.round((cumplidos / programados) * 100) };
+                });
+            }, [equipos, dashYear]);
+
+            useEffect(() => {
+                if (!currentData) return;
+                Object.values(chartInstances.current).forEach(chart => chart && chart.destroy());
+                chartInstances.current = {};
+                Chart.defaults.color = '#94a3b8'; Chart.defaults.font.family = "'Inter', sans-serif";
+
+                if (ratioChartRef.current) {
+                    chartInstances.current.ratio = new Chart(ratioChartRef.current, {
+                        type: 'doughnut',
+                        data: { labels: ['Preventivo (MP)', 'Correctivo (MC)'], datasets: [{ data: [currentData.charts.ratio_mp, currentData.charts.ratio_mc], backgroundColor: ['#10b981', '#f43f5e'], borderWidth: 0 }] },
+                        options: { responsive: true, maintainAspectRatio: false, cutout: '75%', plugins: { legend: { position: 'bottom', labels: { usePointStyle: true } } } }
                     });
                 }
-                document.getElementById('modalOportunidades').classList.remove('hidden');
-            });
-        }
+                if (downtimeChartRef.current) {
+                    chartInstances.current.downtime = new Chart(downtimeChartRef.current, {
+                        type: 'bar',
+                        data: { labels: ['Resonancia', 'Tomografía', 'Hemodinamia', 'Rayos X'], datasets: [{ label: 'Horas', data: currentData.charts.downtime_equipos, backgroundColor: ['#f43f5e', '#f59e0b', '#38bdf8', '#10b981'], borderRadius: 4 }] },
+                        options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { suggestedMax: 50, grid: { color: '#1e293b' } }, y: { grid: { display: false } } } }
+                    });
+                }
+                if (budgetChartRef.current) {
+                    chartInstances.current.budget = new Chart(budgetChartRef.current, {
+                        type: 'bar',
+                        data: { labels: ['Total Depto.', 'Refacciones / Mtto.'], datasets: [{ label: '% Ejercido', data: currentData.charts.budget_pct, backgroundColor: currentData.charts.budget_pct.map(v => v > 100 ? '#f43f5e' : '#38bdf8'), borderRadius: 4 }] },
+                        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, max: Math.max(120, ...currentData.charts.budget_pct) + 10, grid: { color: '#1e293b' } }, x: { grid: { display: false } } } }
+                    });
+                }
+                if (trendChartRef.current) {
+                    chartInstances.current.trend = new Chart(trendChartRef.current, {
+                        type: 'line',
+                        data: { labels: historico.meses, datasets: [{ label: '% Cumplimiento', data: historico.mp, borderColor: '#38bdf8', backgroundColor: 'rgba(56, 189, 248, 0.1)', borderWidth: 3, pointBackgroundColor: '#0f172a', pointBorderColor: '#38bdf8', fill: true, tension: 0.4 }] },
+                        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { min: 50, max: 100, grid: { color: '#1e293b' } }, x: { grid: { display: false } } } }
+                    });
+                }
+            }, [currentData, historico]);
 
-        if(document.getElementById('cerrarModal')) {
-            document.getElementById('cerrarModal').addEventListener('click', () => {
-                document.getElementById('modalOportunidades').classList.add('hidden');
-            });
-        }
-        
-        if(document.getElementById('monthFilter')) {
-            document.getElementById('monthFilter').addEventListener('change', (e) => renderizarDashboard(e.target.value));
-        }
-        
-        if(document.getElementById('btnAnual')) {
-            document.getElementById('btnAnual').addEventListener('click', () => {
-                document.getElementById('monthFilter').value = 'todos';
-                renderizarDashboard('todos');
-            });
-        }
+            if (isLoading || !currentData) return <div className="flex justify-center p-12 text-slate-800"><i className="fa-solid fa-circle-notch fa-spin text-4xl text-blue-500 mb-4"></i></div>;
 
-        window.onload = cargarDatos;
+            return (
+                <div className="bg-dark text-slate-200 p-4 md:p-6 rounded-2xl shadow-xl w-full mx-auto animate-in fade-in duration-500 dark-scroll">
+                    <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-panel p-6 rounded-xl border border-slate-800 shadow-lg mb-6">
+                        <div>
+                            <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">Indicadores de Ingeniería Biomédica</h1>
+                            <p className="text-slate-400 mt-1"><i className="fa-regular fa-hospital mr-2"></i>Hospital San Ángel Inn Patriotismo</p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-3 print-hidden">
+                            <button onClick={() => setIsAnnualView(true)} className="bg-annual hover:bg-violet-400 text-white font-bold py-1.5 px-4 rounded-lg flex items-center border border-violet-500"><i className="fa-solid fa-chart-line mr-2"></i>Vista Anual</button>
+                            <select value={isAnnualView ? '' : currentMonth} onChange={(e) => { setIsAnnualView(false); setCurrentMonth(e.target.value); }} className="bg-dark text-white border-slate-700 rounded px-3 py-1 outline-none">
+                                <option value="" disabled>Seleccione...</option>
+                                {Object.keys(dataSet).map(mes => <option key={mes} value={mes}>{mes.charAt(0).toUpperCase() + mes.slice(1)}</option>)}
+                            </select>
+                        </div>
+                    </header>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                        <div className="bg-panel p-5 rounded-xl border border-slate-800">
+                            <p className="text-slate-400 text-sm font-medium mb-2">Cumplimiento MP</p>
+                            <h3 className="text-3xl font-bold text-success">{currentData.kpis.mp}%</h3>
+                        </div>
+                        <div className="bg-panel p-5 rounded-xl border border-slate-800">
+                            <p className="text-slate-400 text-sm font-medium mb-2">MTTR (Mensual)</p>
+                            <h3 className="text-3xl font-bold text-warning">{currentData.kpis.mttr} hrs</h3>
+                        </div>
+                        <div className="bg-panel p-5 rounded-xl border border-slate-800">
+                            <p className="text-slate-400 text-sm font-medium mb-2">Downtime</p>
+                            <h3 className="text-3xl font-bold text-danger">{currentData.kpis.downtime} hrs</h3>
+                        </div>
+                        <div className="bg-panel p-5 rounded-xl border border-slate-800">
+                            <p className="text-slate-400 text-sm font-medium mb-2">Ejecución Gasto</p>
+                            <h3 className="text-3xl font-bold text-white">{Number(currentData.kpis.bgTotal).toFixed(1)}%</h3>
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div className="lg:col-span-2 flex flex-col gap-6">
+                            <div className="bg-panel p-6 rounded-xl border border-slate-800" style={{minHeight: '20rem'}}><canvas ref={downtimeChartRef}></canvas></div>
+                            <div className="bg-panel p-6 rounded-xl border border-slate-800" style={{minHeight: '20rem'}}><canvas ref={trendChartRef}></canvas></div>
+                            <div className="bg-panel p-6 rounded-xl border border-slate-800" style={{minHeight: '20rem'}}><canvas ref={budgetChartRef}></canvas></div>
+                        </div>
+                        <div className="flex flex-col gap-6">
+                            <div className="bg-panel p-6 rounded-xl border border-slate-800" style={{minHeight: '20rem'}}><canvas ref={ratioChartRef}></canvas></div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+
+        // ============================================================================
+        // LÓGICA PRINCIPAL CMMS (INVENTARIO Y CALENDARIOS Y CLIENTES)
+        // ============================================================================
+        const CMMSHospitalario = () => {
+          const [activeTab, setActiveTab] = useState('dashboard');
+          const [inventarioTab, setInventarioTab] = useState('Propio');
+          const [equipos, setEquipos] = useState([]);
+          const [isSyncing, setIsSyncing] = useState(false);
+          const [showAddEquipo, setShowAddEquipo] = useState(false);
+          
+          const [searchTerm, setSearchTerm] = useState('');
+          const [filterEstatus, setFilterEstatus] = useState('Todos');
+          
+          // Filtros Calendario
+          const [filterUbicacionCal, setFilterUbicacionCal] = useState('Todas');
+          const [filterMesCal, setFilterMesCal] = useState('Todos');
+          const [searchControlCal, setSearchControlCal] = useState('');
+          const [calendarYear, setCalendarYear] = useState(new Date().getFullYear());
+
+          const [selectedEquipo, setSelectedEquipo] = useState(null);
+          const [isEditing, setIsEditing] = useState(false);
+          const [equipoEditado, setEquipoEditado] = useState(null);
+          
+          // --- ESTADOS PARA MÓDULO DE CLIENTES ---
+          const [selectedCliente, setSelectedCliente] = useState(null);
+          const [clienteSubTab, setClienteSubTab] = useState('preventivos'); // preventivos | correctivos
+          const [busquedaPrev, setBusquedaPrev] = useState('');
+          const [mesFiltroPrev, setMesFiltroPrev] = useState('Todos');
+          const [mesFiltroCorr, setMesFiltroCorr] = useState('Todos');
+
+          const estadoInicialEquipo = {
+            origen: inventarioTab, numero: '', numeroInventario: '', estatus: 'En Servicio', motivoFueraServicio: '', nombre: '', marca: '', polizaMantenimiento: 'No', modelo: '', numeroSerie: '', fabricante: '', nivelRiesgo: 'I', ubicacion: '', fechaAlta: '', proveedorMantenimiento: '', descripcion: '', tipoTecnologia: 'Equipo Médico', frecuenciaMantenimiento: '', ultimoMantenimiento: '', proximoMantenimiento: '', historialEjecuciones: ''
+          };
+          const [nuevoEquipo, setNuevoEquipo] = useState(estadoInicialEquipo);
+
+          useEffect(() => { handleSyncSheets(); }, []);
+
+          const equiposFiltrados = useMemo(() => {
+            return equipos.filter(e => {
+              const matchHoja = e.origen === inventarioTab;
+              const matchEstatus = filterEstatus === 'Todos' || e.estatus === filterEstatus;
+              if (!searchTerm) return matchHoja && matchEstatus;
+              const s = searchTerm.toLowerCase();
+              return matchHoja && matchEstatus && (
+                String(e.nombre || '').toLowerCase().includes(s) || String(e.numeroInventario || '').toLowerCase().includes(s) || String(e.marca || '').toLowerCase().includes(s) || String(e.numeroSerie || '').toLowerCase().includes(s)
+              );
+            });
+          }, [equipos, inventarioTab, searchTerm, filterEstatus]);
+
+          const ubicacionesUnicas = useMemo(() => {
+              const locs = equipos.filter(e => e.origen === inventarioTab).map(e => e.ubicacion).filter(u => u && u.trim() !== '');
+              return ['Todas', ...new Set(locs)].sort();
+          }, [equipos, inventarioTab]);
+
+          const equiposCalendario = useMemo(() => {
+              return equipos.filter(e => {
+                  if (e.origen !== inventarioTab) return false;
+                  if (!e.frecuenciaMantenimiento || e.frecuenciaMantenimiento === '') return false;
+                  if (e.motivoFueraServicio === 'BAJA DEFINITIVA') return false;
+                  if (filterUbicacionCal !== 'Todas' && e.ubicacion !== filterUbicacionCal) return false;
+                  if (searchControlCal && !String(e.numeroInventario || '').toLowerCase().includes(searchControlCal.toLowerCase())) return false;
+                  if (filterMesCal !== 'Todos') {
+                      const monthIdx = parseInt(filterMesCal, 10);
+                      const programados = obtenerMesesProgramados(e.ultimoMantenimiento, e.frecuenciaMantenimiento, calendarYear);
+                      if (!programados.has(monthIdx)) return false;
+                  }
+                  return true;
+              });
+          }, [equipos, inventarioTab, filterUbicacionCal, filterMesCal, searchControlCal, calendarYear]);
+
+          const handleSyncSheets = async () => {
+            setIsSyncing(true);
+            if (!GOOGLE_SHEETS_WEBAPP_URL) { setTimeout(() => setIsSyncing(false), 1000); return; }
+            try {
+              const response = await fetch(`${GOOGLE_SHEETS_WEBAPP_URL}?action=getAll`);
+              const data = await response.json();
+              const procesarHoja = (arr, origen) => (arr || []).filter(e => e.numeroInventario || e.nombre).map(e => ({...e, origen, id: `${origen}-${e.id}`}));
+              setEquipos([...procesarHoja(data.propio, 'Propio'), ...procesarHoja(data.comodato, 'Comodato'), ...procesarHoja(data.renta, 'Renta')]);
+            } catch (error) { console.error(error); } finally { setIsSyncing(false); }
+          };
+
+          const directSaveToSheets = async (equipo) => {
+             if (GOOGLE_SHEETS_WEBAPP_URL) {
+              try {
+                setIsSyncing(true);
+                await fetch(GOOGLE_SHEETS_WEBAPP_URL, {
+                  method: 'POST', body: JSON.stringify({ action: 'edit', data: equipo, sheetName: equipo.origen, id: equipo.id, originalInventario: equipo.numeroInventario })
+                });
+              } catch (error) { console.error(error); } finally { setIsSyncing(false); }
+            }
+          };
+
+          // Función para calcular 6 meses automáticos para el módulo de Clientes
+          const calcularSiguientes6Meses = (fechaYyyyMm) => {
+              if(!fechaYyyyMm) return 'Sin fecha previa';
+              const [y, m] = fechaYyyyMm.split('-');
+              let date = new Date(parseInt(y), parseInt(m) - 1, 1);
+              date.setMonth(date.getMonth() + 6);
+              let newM = date.getMonth() + 1;
+              return `${date.getFullYear()}-${newM < 10 ? '0' : ''}${newM}`;
+          };
+
+          // --- RENDER MÓDULO DE CLIENTES ---
+          const renderClientes = () => {
+              if (!selectedCliente) {
+                  return (
+                      <div className="space-y-6 animate-in fade-in duration-300">
+                          <h2 className="text-2xl font-bold flex items-center gap-2 text-slate-800">
+                            <i className="fas fa-building text-blue-600"></i> Información de Clientes
+                          </h2>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                              {mockClientes.map(cliente => (
+                                  <div key={cliente.id} onClick={() => setSelectedCliente(cliente)} className="bg-white border border-gray-200 rounded-xl p-6 hover:shadow-lg hover:border-blue-300 transition cursor-pointer group">
+                                      <div className="flex items-start gap-4">
+                                          <div className="bg-blue-50 text-blue-600 p-4 rounded-full group-hover:bg-blue-600 group-hover:text-white transition">
+                                              <i className="fas fa-hospital text-2xl"></i>
+                                          </div>
+                                          <div>
+                                              <h3 className="text-lg font-bold text-gray-800 group-hover:text-blue-700 transition">{cliente.nombre}</h3>
+                                              <p className="text-sm text-gray-500 mt-1"><i className="fas fa-map-marker-alt w-4"></i> {cliente.direccion}</p>
+                                              <p className="text-sm text-gray-500 mt-1"><i className="fas fa-user-tie w-4"></i> Resp: {cliente.ingeniero}</p>
+                                          </div>
+                                      </div>
+                                  </div>
+                              ))}
+                          </div>
+                      </div>
+                  );
+              }
+
+              // Vista del Detalle del Cliente
+              
+              // Filtro de Preventivos
+              const prevFiltrados = mockPreventivos.filter(p => {
+                  const proximo = calcularSiguientes6Meses(p.fechaEjecucion);
+                  let matchBuscar = p.nombre.toLowerCase().includes(busquedaPrev.toLowerCase()) || 
+                                    p.inventario.toLowerCase().includes(busquedaPrev.toLowerCase()) ||
+                                    p.marca.toLowerCase().includes(busquedaPrev.toLowerCase());
+                  let matchMes = mesFiltroPrev === 'Todos' || proximo.endsWith(mesFiltroPrev);
+                  return matchBuscar && matchMes;
+              });
+
+              // Filtro Correctivos
+              const corrFiltrados = mockCorrectivos.filter(c => {
+                  return mesFiltroCorr === 'Todos' || c.fechaEjecucion.endsWith(mesFiltroCorr);
+              });
+
+              return (
+                  <div className="space-y-6 animate-in fade-in duration-300">
+                      {/* HEADER CLIENTE */}
+                      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                          <button onClick={() => setSelectedCliente(null)} className="text-blue-600 hover:text-blue-800 font-medium mb-4 flex items-center gap-2 text-sm">
+                              <i className="fas fa-arrow-left"></i> Volver a Clientes
+                          </button>
+                          
+                          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                              <div>
+                                  <h2 className="text-2xl font-bold text-gray-800">{selectedCliente.nombre}</h2>
+                                  <div className="flex flex-wrap gap-4 mt-2 text-sm text-gray-600">
+                                      <span className="flex items-center gap-1"><i className="fas fa-map-marker-alt text-gray-400"></i> {selectedCliente.direccion}</span>
+                                      <span className="flex items-center gap-1"><i className="fas fa-phone text-gray-400"></i> {selectedCliente.telefono}</span>
+                                      <span className="flex items-center gap-1"><i className="fas fa-envelope text-gray-400"></i> {selectedCliente.correo}</span>
+                                  </div>
+                              </div>
+                          </div>
+                      </div>
+
+                      {/* INDICADORES CLAVE DEL CLIENTE */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 flex items-center gap-4">
+                              <div className="bg-blue-100 text-blue-600 p-3 rounded-lg text-xl"><i className="fas fa-tools"></i></div>
+                              <div>
+                                  <p className="text-sm text-gray-500 font-medium">Servicios Ejecutados Totales</p>
+                                  <p className="text-2xl font-bold text-gray-800">{selectedCliente.serviciosEjecutados}</p>
+                              </div>
+                          </div>
+                          
+                          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 flex flex-col justify-center">
+                              <p className="text-sm text-gray-500 font-medium mb-2">Distribución por Tipo</p>
+                              <div className="flex justify-between text-xs font-bold text-gray-700">
+                                  <span><i className="fas fa-circle text-blue-500 text-[10px]"></i> Prev: {selectedCliente.distribucion.preventivos}</span>
+                                  <span><i className="fas fa-circle text-red-500 text-[10px]"></i> Corr: {selectedCliente.distribucion.correctivos}</span>
+                                  <span><i className="fas fa-circle text-amber-500 text-[10px]"></i> Calib: {selectedCliente.distribucion.calibraciones}</span>
+                              </div>
+                          </div>
+
+                          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 flex items-center gap-4">
+                              <div className="bg-emerald-100 text-emerald-600 p-3 rounded-lg text-xl"><i className="fas fa-user-cog"></i></div>
+                              <div>
+                                  <p className="text-sm text-gray-500 font-medium">Ingeniero Principal</p>
+                                  <p className="text-lg font-bold text-gray-800">{selectedCliente.ingeniero}</p>
+                              </div>
+                          </div>
+                      </div>
+
+                      {/* TABLAS DE MANTENIMIENTO */}
+                      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                          <div className="flex border-b border-gray-200 bg-gray-50">
+                              <button onClick={() => setClienteSubTab('preventivos')} className={`flex-1 py-4 font-bold text-sm transition-colors border-b-2 ${clienteSubTab === 'preventivos' ? 'border-blue-600 text-blue-700 bg-white' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>Mantenimientos Preventivos y Calibraciones</button>
+                              <button onClick={() => setClienteSubTab('correctivos')} className={`flex-1 py-4 font-bold text-sm transition-colors border-b-2 ${clienteSubTab === 'correctivos' ? 'border-red-600 text-red-700 bg-white' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>Mantenimientos Correctivos y Asistencias</button>
+                          </div>
+
+                          {/* CONTENIDO TABS */}
+                          <div className="p-6">
+                              {clienteSubTab === 'preventivos' && (
+                                  <div className="animate-in fade-in">
+                                      <div className="flex flex-col md:flex-row gap-4 mb-4">
+                                          <div className="flex-1">
+                                              <input type="text" value={busquedaPrev} onChange={(e) => setBusquedaPrev(e.target.value)} placeholder="Búsqueda general (Nombre, Serie, Inv...)" className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                                          </div>
+                                          <div className="flex items-center gap-2">
+                                              <label className="text-sm font-bold text-gray-600">Mes de Próximo Mtto:</label>
+                                              <select value={mesFiltroPrev} onChange={(e) => setMesFiltroPrev(e.target.value)} className="px-4 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:border-blue-500 bg-white">
+                                                  <option value="Todos">Todos los meses</option>
+                                                  <option value="01">Enero</option><option value="02">Febrero</option><option value="03">Marzo</option>
+                                                  <option value="04">Abril</option><option value="05">Mayo</option><option value="06">Junio</option>
+                                                  <option value="07">Julio</option><option value="08">Agosto</option><option value="09">Septiembre</option>
+                                                  <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
+                                              </select>
+                                          </div>
+                                      </div>
+
+                                      <div className="overflow-x-auto border border-gray-200 rounded-lg">
+                                          <table className="w-full text-left whitespace-nowrap text-sm">
+                                              <thead className="bg-gray-100 text-gray-700 uppercase text-xs font-bold">
+                                                  <tr>
+                                                      <th className="p-3 border-b">Tipo</th>
+                                                      <th className="p-3 border-b">Equipo</th>
+                                                      <th className="p-3 border-b">Datos Técnicos</th>
+                                                      <th className="p-3 border-b">Área</th>
+                                                      <th className="p-3 border-b text-center bg-blue-50">Último Mtto</th>
+                                                      <th className="p-3 border-b text-center bg-blue-100 text-blue-800">Próximo (+6m)</th>
+                                                  </tr>
+                                              </thead>
+                                              <tbody className="divide-y divide-gray-100">
+                                                  {prevFiltrados.length === 0 ? (
+                                                      <tr><td colSpan="6" className="p-6 text-center text-gray-500">No se encontraron registros.</td></tr>
+                                                  ) : prevFiltrados.map(p => (
+                                                      <tr key={p.id} className="hover:bg-gray-50">
+                                                          <td className="p-3">
+                                                              <span className={`px-2 py-1 rounded text-xs font-bold ${p.tipo === 'Calibración' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>{p.tipo}</span>
+                                                          </td>
+                                                          <td className="p-3">
+                                                              <p className="font-bold text-gray-800">{p.nombre}</p>
+                                                              <p className="text-xs text-gray-500">{p.inventario}</p>
+                                                          </td>
+                                                          <td className="p-3 text-xs text-gray-600">
+                                                              <p><strong>M:</strong> {p.marca} | {p.modelo}</p>
+                                                              <p><strong>S/N:</strong> {p.serie}</p>
+                                                          </td>
+                                                          <td className="p-3 text-gray-700">{p.area}</td>
+                                                          <td className="p-3 text-center text-gray-600 font-mono">{p.fechaEjecucion}</td>
+                                                          <td className="p-3 text-center font-bold text-blue-600 font-mono bg-blue-50/30 border-l border-blue-100">{calcularSiguientes6Meses(p.fechaEjecucion)}</td>
+                                                      </tr>
+                                                  ))}
+                                              </tbody>
+                                          </table>
+                                      </div>
+                                  </div>
+                              )}
+
+                              {clienteSubTab === 'correctivos' && (
+                                  <div className="animate-in fade-in">
+                                      <div className="flex justify-end mb-4">
+                                          <div className="flex items-center gap-2">
+                                              <label className="text-sm font-bold text-gray-600">Mes de Ejecución:</label>
+                                              <select value={mesFiltroCorr} onChange={(e) => setMesFiltroCorr(e.target.value)} className="px-4 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:border-red-500 bg-white">
+                                                  <option value="Todos">Todos los meses</option>
+                                                  <option value="01">Enero</option><option value="02">Febrero</option><option value="03">Marzo</option>
+                                                  <option value="04">Abril</option><option value="05">Mayo</option><option value="06">Junio</option>
+                                                  <option value="07">Julio</option><option value="08">Agosto</option><option value="09">Septiembre</option>
+                                                  <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
+                                              </select>
+                                          </div>
+                                      </div>
+
+                                      <div className="overflow-x-auto border border-gray-200 rounded-lg">
+                                          <table className="w-full text-left whitespace-nowrap text-sm">
+                                              <thead className="bg-gray-100 text-gray-700 uppercase text-xs font-bold">
+                                                  <tr>
+                                                      <th className="p-3 border-b">No. Orden Mtto</th>
+                                                      <th className="p-3 border-b">Tipo</th>
+                                                      <th className="p-3 border-b">Equipo</th>
+                                                      <th className="p-3 border-b">Marca / Modelo</th>
+                                                      <th className="p-3 border-b">Número Serie</th>
+                                                      <th className="p-3 border-b text-center">Mes Ejecución</th>
+                                                  </tr>
+                                              </thead>
+                                              <tbody className="divide-y divide-gray-100">
+                                                  {corrFiltrados.length === 0 ? (
+                                                      <tr><td colSpan="6" className="p-6 text-center text-gray-500">No se encontraron registros.</td></tr>
+                                                  ) : corrFiltrados.map(c => (
+                                                      <tr key={c.id} className="hover:bg-red-50/50">
+                                                          <td className="p-3"><span className="font-mono font-bold text-gray-800">{c.orden}</span></td>
+                                                          <td className="p-3"><span className={`px-2 py-1 rounded text-xs font-bold ${c.tipo === 'Asistencia' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>{c.tipo}</span></td>
+                                                          <td className="p-3 font-bold text-gray-800">{c.nombre}</td>
+                                                          <td className="p-3 text-gray-600">{c.marca} / {c.modelo}</td>
+                                                          <td className="p-3 text-gray-600 font-mono text-xs">{c.serie}</td>
+                                                          <td className="p-3 text-center text-gray-700 font-mono">{c.fechaEjecucion}</td>
+                                                      </tr>
+                                                  ))}
+                                              </tbody>
+                                          </table>
+                                      </div>
+                                  </div>
+                              )}
+                          </div>
+                      </div>
+                  </div>
+              );
+          };
+
+          return (
+            <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row font-sans text-slate-800">
+              <aside className="w-full md:w-64 bg-slate-900 text-white flex flex-col shadow-xl z-10 md:min-h-screen print-hidden">
+                <div className="p-6 border-b border-slate-800 flex items-center gap-3">
+                  <div className="bg-blue-500 p-2 rounded-lg w-10 h-10 flex items-center justify-center"><i className="fas fa-thermometer-half text-white text-xl"></i></div>
+                  <div>
+                    <h1 className="text-xl font-bold tracking-tight">MediCMMS</h1>
+                    <p className="text-xs text-slate-400">Google Sheets Sync</p>
+                  </div>
+                </div>
+                
+                <nav className="flex-1 p-4 space-y-2">
+                  <button onClick={() => {setActiveTab('dashboard'); setSelectedEquipo(null); setSelectedCliente(null);}} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === 'dashboard' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}>
+                    <i className="fas fa-columns w-5 text-center"></i> Dashboard
+                  </button>
+                  <button onClick={() => {setActiveTab('equipos'); setSelectedEquipo(null); setSelectedCliente(null);}} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === 'equipos' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}>
+                    <i className="fas fa-stethoscope w-5 text-center"></i> Inventario
+                  </button>
+                  <button onClick={() => {setActiveTab('calendarios'); setSelectedEquipo(null); setSelectedCliente(null);}} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === 'calendarios' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}>
+                    <i className="far fa-calendar-alt w-5 text-center"></i> Calendarios
+                  </button>
+                  
+                  <div className="my-4 border-t border-slate-800"></div>
+
+                  <button onClick={() => {setActiveTab('clientes'); setSelectedEquipo(null);}} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === 'clientes' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}>
+                    <i className="fas fa-hospital-user w-5 text-center"></i> Info. Clientes
+                  </button>
+                </nav>
+              </aside>
+
+              <main className="flex-1 p-0 md:p-6 overflow-y-auto relative">
+                <div className={`max-w-7xl mx-auto h-full ${activeTab === 'dashboard' ? 'p-0 md:p-0' : ''}`}>
+                  {activeTab === 'dashboard' && <IndicadoresDashboard equipos={equipos} />}
+                  {activeTab === 'clientes' && renderClientes()}
+                  {/* AQUÍ ESTARÍA LA LLAMADA A renderEquipos() Y renderCalendarios() COMO EN TU CÓDIGO ORIGINAL */}
+                </div>
+              </main>
+            </div>
+          );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<CMMSHospitalario />);
     </script>
 </body>
 </html>
