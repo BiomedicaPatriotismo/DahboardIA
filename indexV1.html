@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Operativo Completo</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        brand: { 50: '#f0fdfa', 100: '#ccfbf1', 500: '#14b8a6', 600: '#0d9488', 900: '#134e4a' },
+                        kpi: { blue: '#3b82f6', red: '#ef4444', green: '#10b981', orange: '#f97316', purple: '#8b5cf6' }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .fade-in { animation: fadeIn 0.4s ease-out forwards; opacity: 0; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .chart-wrapper { position: relative; height: 300px; width: 100%; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen pb-12">
+
+    <div id="loadingBanner" class="max-w-7xl mx-auto px-4 mt-6 fade-in">
+        <div class="bg-blue-50 border-l-4 border-blue-500 text-blue-700 p-4 rounded-xl shadow-sm flex items-center">
+            <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+            <p class="font-bold">Conectando con Google Sheets y descargando datos...</p>
+        </div>
+    </div>
+
+    <div id="errorBanner" class="hidden max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 fade-in">
+        <div class="bg-red-50 border-l-4 border-red-500 text-red-700 p-4 rounded-xl shadow-sm">
+            <div class="flex items-center">
+                <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                <p class="font-bold text-lg">Error al cargar información</p>
+            </div>
+            <p id="errorTexto" class="mt-2 font-medium">Revisa la consola (F12) para más detalles.</p>
+        </div>
+    </div>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" id="dashboardContent" style="display: none;">
+        
+        <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 bg-white p-6 rounded-2xl shadow-sm border border-slate-100 fade-in">
+            <div class="mb-4 lg:mb-0">
+                <h1 class="text-3xl font-bold text-slate-900 tracking-tight">Métricas Operativas</h1>
+                <p class="text-sm text-slate-500 mt-1">Análisis de rendimiento, cargas de trabajo y oportunidades</p>
+            </div>
+            
+            <div class="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
+                <div class="relative w-full sm:w-56">
+                    <select id="monthFilter" class="appearance-none bg-slate-50 border border-slate-200 text-slate-900 text-sm font-medium rounded-xl focus:ring-brand-500 focus:border-brand-500 block w-full p-3 pr-10 cursor-pointer outline-none">
+                        <option value="todos">Todos los meses (Anual)</option>
+                        <option value="enero">Enero</option>
+                        <option value="febrero">Febrero</option>
+                        <option value="marzo">Marzo</option>
+                        <option value="abril">Abril</option>
+                        <option value="mayo">Mayo</option>
+                        <option value="junio">Junio</option>
+                        <option value="julio">Julio</option>
+                        <option value="agosto">Agosto</option>
+                        <option value="septiembre">Septiembre</option>
+                        <option value="octubre">Octubre</option>
+                        <option value="noviembre">Noviembre</option>
+                        <option value="diciembre">Diciembre</option>
+                    </select>
+                    <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-500">
+                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                    </div>
+                </div>
+                <button id="btnAnual" class="bg-slate-900 hover:bg-slate-800 text-white font-semibold py-3 px-6 rounded-xl shadow-sm transition-all duration-200 flex items-center justify-center gap-2">
+                    Ver Todo el Año
+                </button>
+            </div>
+        </div>
+
+        <h2 class="text-lg font-bold text-slate-800 mb-4 px-2">Indicadores Clave de Rendimiento (KPIs)</h2>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            
+            <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between">
+                <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-2">Ratio Preventivo</div>
+                <div class="text-3xl font-bold text-kpi-blue" id="kpi-prev">0%</div>
+            </div>
+
+            <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between">
+                <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-2">Ratio Correctivo</div>
+                <div class="text-3xl font-bold text-kpi-orange" id="kpi-corr">0%</div>
+            </div>
+
+            <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between">
+                <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-2">MTTR Promedio</div>
+                <div class="flex items-end gap-2">
+                    <div class="text-3xl font-bold text-slate-800" id="kpi-mttr">0</div>
+                    <span class="text-sm text-slate-500 font-medium mb-1">min</span>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between">
+                <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-2">Tasa de Entrega</div>
+                <div class="text-3xl font-bold text-kpi-green" id="kpi-entrega">0%</div>
+            </div>
+
+            <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between">
+                <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-2">Tasa Refacciones</div>
+                <div class="text-3xl font-bold text-slate-800" id="kpi-refacciones">0%</div>
+            </div>
+
+            <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between">
+                <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-2">Fallas Críticas</div>
+                <div class="text-3xl font-bold text-kpi-red" id="kpi-fallas">0%</div>
+            </div>
+
+            <div id="card-ventas" class="bg-white rounded-2xl p-5 shadow-sm border border-brand-100 flex flex-col justify-between md:col-span-2 cursor-pointer hover:shadow-md hover:border-brand-400 transition-all group">
+                <div class="flex justify-between items-start mb-2">
+                    <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider group-hover:text-brand-600 transition-colors">Oportunidades de Venta (Clic para Detalle)</div>
+                    <svg class="w-4 h-4 text-slate-400 group-hover:text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                </div>
+                <div class="flex items-end gap-2">
+                    <div class="text-3xl font-bold text-kpi-purple" id="kpi-ventas">0</div>
+                    <span class="text-sm text-slate-500 font-medium mb-1">cotizaciones detectadas</span>
+                </div>
+            </div>
+        </div>
+
+        <h2 class="text-lg font-bold text-slate-800 mb-4 px-2">Estatus de Equipos Atendidos</h2>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
+            <div class="bg-slate-800 rounded-2xl p-5 shadow-sm text-white flex flex-col justify-between">
+                <div class="text-slate-300 text-xs font-semibold uppercase tracking-wider mb-2">Equipos en Garantía</div>
+                <div class="text-3xl font-bold" id="ind-garantia">0</div>
+            </div>
+            <div class="bg-slate-800 rounded-2xl p-5 shadow-sm text-white flex flex-col justify-between">
+                <div class="text-slate-300 text-xs font-semibold uppercase tracking-wider mb-2">Equipos en Contrato</div>
+                <div class="text-3xl font-bold" id="ind-contrato">0</div>
+            </div>
+            <div class="bg-slate-100 rounded-2xl p-5 shadow-sm border border-slate-200 flex flex-col justify-between">
+                <div class="text-slate-600 text-xs font-semibold uppercase tracking-wider mb-2">Fuera de Servicio</div>
+                <div class="text-3xl font-bold text-slate-800" id="ind-fuera">0</div>
+            </div>
+            <div class="bg-slate-100 rounded-2xl p-5 shadow-sm border border-slate-200 flex flex-col justify-between">
+                <div class="text-slate-600 text-xs font-semibold uppercase tracking-wider mb-2">A Prueba (8 Días)</div>
+                <div class="text-3xl font-bold text-slate-800" id="ind-prueba">0</div>
+            </div>
+        </div>
+
+        <h2 class="text-lg font-bold text-slate-800 mb-4 px-2">Análisis Dinámico (Tablas Dinámicas)</h2>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
+            <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+                <h3 class="text-base font-bold text-slate-800 mb-4">Carga de Trabajo (Por Ingeniero)</h3>
+                <div class="chart-wrapper"><canvas id="chartCargaTrabajo"></canvas></div>
+            </div>
+
+            <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+                <h3 class="text-base font-bold text-slate-800 mb-4">Distribución por Tipo de Servicio</h3>
+                <div class="chart-wrapper"><canvas id="chartTipos"></canvas></div>
+            </div>
+
+            <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+                <h3 class="text-base font-bold text-slate-800 mb-4">Principales Clientes</h3>
+                <div class="chart-wrapper"><canvas id="chartClientes"></canvas></div>
+            </div>
+
+            <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+                <h3 class="text-base font-bold text-slate-800 mb-4">Principales Marcas</h3>
+                <div class="chart-wrapper"><canvas id="chartMarcas"></canvas></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalOportunidades" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden flex items-center justify-center z-50 fade-in">
+        <div class="bg-white rounded-2xl w-11/12 max-w-5xl max-h-[85vh] overflow-hidden shadow-2xl flex flex-col">
+            <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                <h3 class="text-lg font-bold text-slate-800">Detalle de Oportunidades de Venta</h3>
+                <button id="cerrarModal" class="text-slate-400 hover:text-slate-600 focus:outline-none bg-white rounded-full p-1 shadow-sm transition-colors hover:bg-slate-100">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <div class="p-6 overflow-y-auto flex-1 bg-slate-50/50">
+                <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+                    <table class="min-w-full divide-y divide-slate-200">
+                        <thead class="bg-slate-50">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Orden (ID)</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Cliente / Unidad</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Equipo</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Ingeniero</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Motivo</th>
+                            </tr>
+                        </thead>
+                        <tbody id="listaOportunidades" class="divide-y divide-slate-100 text-sm text-slate-700 bg-white">
+                            <!-- Datos Inyectados con JS -->
+                        </tbody>
+                    </table>
+                </div>
+                <div id="noOportunidades" class="text-center py-10 text-slate-500 hidden flex flex-col items-center">
+                    <svg class="w-12 h-12 text-slate-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path></svg>
+                    <p>No hay oportunidades de venta detectadas en este periodo.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        Chart.register(ChartDataLabels);
+
+        let charts = { carga: null, tipos: null, clientes: null, marcas: null };
+        let datosAgrupadosPorMes = []; 
+        let datosDetalleOrdenes = [];  
+
+        const palette = ['#14b8a6', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444', '#64748b', '#0ea5e9'];
+
+        const csvUrlDashboard = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTX8QjDtAKXCfIUI4Uc2FENvOfBh-XCoxjBGWiTxRkqHQ3YjnvY3TnZf7FqJsn2o3yAyhV0ge78nJea/pub?gid=570492353&single=true&output=csv';
+        const csvUrlCorpus = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTX8QjDtAKXCfIUI4Uc2FENvOfBh-XCoxjBGWiTxRkqHQ3YjnvY3TnZf7FqJsn2o3yAyhV0ge78nJea/pub?gid=680282818&single=true&output=csv';
+        
+        async function cargarDatos() {
+            try {
+                const [respDashboard, respCorpus] = await Promise.all([
+                    fetch(csvUrlDashboard + '&t=' + new Date().getTime()),
+                    fetch(csvUrlCorpus + '&t=' + new Date().getTime())
+                ]);
+
+                if (!respDashboard.ok || !respCorpus.ok) throw new Error("Fallo en la red al descargar los documentos.");
+
+                const csvTextoDashboard = await respDashboard.text();
+                const csvTextoCorpus = await respCorpus.text();
+
+                Papa.parse(csvTextoDashboard, {
+                    header: true, skipEmptyLines: true,
+                    transformHeader: function(h) { return h.trim().toLowerCase(); },
+                    complete: function(results) { datosAgrupadosPorMes = results.data; }
+                });
+
+                Papa.parse(csvTextoCorpus, {
+                    header: true, skipEmptyLines: true,
+                    transformHeader: function(h) { return h.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""); },
+                    complete: function(results) { procesarDatosCorpus(results.data); }
+                });
+
+                setTimeout(() => {
+                    document.getElementById('loadingBanner').style.display = 'none';
+                    document.getElementById('dashboardContent').style.display = 'block';
+                    renderizarDashboard('todos'); 
+                }, 500);
+
+            } catch (error) {
+                mostrarError("Error de Conexión: " + error.message);
+            }
+        }
+
+        function mostrarError(mensaje) {
+            document.getElementById('loadingBanner').style.display = 'none';
+            document.getElementById('errorBanner').classList.remove('hidden');
+            document.getElementById('errorTexto').innerText = mensaje;
+        }
+
+        function procesarDatosCorpus(data) {
+            datosDetalleOrdenes = [];
+            
+            data.forEach(row => {
+                let obj = {};
+                
+                obj['Mes'] = (row['mes'] || 'sin mes').toLowerCase().trim();
+                obj['ID'] = row['id unico'] || row['submission id'] || row['idunico'] || 'S/N';
+                obj['Ingeniero'] = row['ingeniero de servicio'] || row['ingeniero'] || row['tecnico'] || 'Sin Asignar';
+                obj['Equipo'] = row['equipo:'] || row['equipo'] || 'Sin Equipo';
+                obj['Tipo de Servicio'] = row['tipo de servicio o mantenimiento'] || '';
+                obj['Cliente'] = row['unidad:'] || row['unidad'] || row['cliente'] || 'Sin Cliente';
+                obj['Marca'] = row['marca:'] || row['marca'] || 'Sin Marca';
+
+                let estatusRaw = (row['estatus de seguimiento'] || row['escribauna'] || '').toUpperCase().trim();
+                let estatusLimpio = estatusRaw.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                
+                obj['estatus_seguimiento_limpio'] = estatusLimpio;
+
+                obj['oportunidad'] = false;
+                obj['motivo_venta'] = '';
+                
+                // Filtro estricto: Solo si dice "REQUIERE COTIZACION"
+                if (estatusLimpio.includes('REQUIERE COTIZACION')) {
+                    obj['oportunidad'] = true;
+                    let nota = (row['observaciones:'] || row['observaciones'] || row['detalle de funcionalidad:'] || '').trim();
+                    obj['motivo_venta'] = nota !== '' ? nota : estatusRaw;
+                }
+
+                if (obj['ID'] !== 'S/N') {
+                    datosDetalleOrdenes.push(obj);
+                }
+            });
+        }
+
+        const parsePercent = (val) => {
+            if (!val) return 0;
+            if (typeof val === 'number') return val;
+            let num = parseFloat(val.replace(/%/g, '').trim());
+            return isNaN(num) ? 0 : num;
+        };
+
+        const formatearKPI = (valor, esPorcentaje = false) => {
+             if (esPorcentaje) return valor.toFixed(1) + '%';
+             return valor.toFixed(1);
+        };
+
+        function renderizarDashboard(filtroMes) {
+            let sumMTTR = 0, sumFallas = 0, sumPrev = 0, sumCorr = 0, sumEntrega = 0, sumRefac = 0;
+            let kpiTotalItems = 0;
+
+            let datosFiltradosKPI = datosAgrupadosPorMes;
+            if (filtroMes !== 'todos') {
+                datosFiltradosKPI = datosAgrupadosPorMes.filter(item => (item.mes || '').toLowerCase().trim() === filtroMes);
+            }
+
+            if (datosFiltradosKPI.length > 0) {
+                datosFiltradosKPI.forEach(d => {
+                    sumPrev += parsePercent(d.ratio_preventivo);
+                    sumCorr += parsePercent(d.ratio_corectivo || d.ratio_correctivo); 
+                    sumMTTR += Number(d.mttr) || 0;
+                    sumEntrega += parsePercent(d.tasa_entrega);
+                    sumRefac += parsePercent(d.tasa_refacciones);
+                    sumFallas += parsePercent(d.fallas_criticas);
+                    kpiTotalItems++;
+                });
+
+                let divisorPromedio = filtroMes === 'todos' ? kpiTotalItems : 1;
+
+                const setVal = (id, val) => { if(document.getElementById(id)) document.getElementById(id).innerText = val; };
+                
+                setVal('kpi-prev', formatearKPI(sumPrev / divisorPromedio, true));
+                setVal('kpi-corr', formatearKPI(sumCorr / divisorPromedio, true));
+                setVal('kpi-mttr', formatearKPI(sumMTTR / divisorPromedio, false));
+                setVal('kpi-entrega', formatearKPI(sumEntrega / divisorPromedio, true));
+                setVal('kpi-refacciones', formatearKPI(sumRefac / divisorPromedio, true));
+                setVal('kpi-fallas', formatearKPI(sumFallas / divisorPromedio, true));
+
+            } else {
+                 document.querySelectorAll('[id^="kpi-"]').forEach(el => {
+                     if(!el.id.includes('ventas')) el.innerText = el.id.includes('mttr') ? '0' : '0%';
+                 });
+            }
+
+            let datosFiltradosCorpus = datosDetalleOrdenes;
+            if (filtroMes !== 'todos') {
+                datosFiltradosCorpus = datosDetalleOrdenes.filter(item => item.Mes === filtroMes);
+            }
+
+            // Sincronización perfecta de las Ventas calculadas de la tabla
+            const conteoVentasReales = datosFiltradosCorpus.filter(d => d.oportunidad).length;
+            if(document.getElementById('kpi-ventas')) document.getElementById('kpi-ventas').innerText = conteoVentasReales;
+
+            let cargaMap = {}, tiposMap = {}, clientesMap = {}, marcasMap = {};
+            let countGarantia = 0, countContrato = 0, countFuera = 0, countPrueba = 0;
+
+            datosFiltradosCorpus.forEach(d => {
+                if (d.estatus_seguimiento_limpio) {
+                    if (d.estatus_seguimiento_limpio.includes('GARANTIA')) countGarantia++;
+                    if (d.estatus_seguimiento_limpio.includes('CONTRATO')) countContrato++;
+                    if (d.estatus_seguimiento_limpio.includes('FUERA DE SERVICIO')) countFuera++;
+                    if (d.estatus_seguimiento_limpio.includes('PRUEBA') || d.estatus_seguimiento_limpio.includes('8 DIAS')) countPrueba++;
+                }
+
+                if(d.Ingeniero && d.Ingeniero !== 'Sin Asignar') {
+                    cargaMap[d.Ingeniero] = (cargaMap[d.Ingeniero] || 0) + 1;
+                }
+                
+                if(d['Tipo de Servicio']) tiposMap[d['Tipo de Servicio']] = (tiposMap[d['Tipo de Servicio']] || 0) + 1;
+                clientesMap[d.Cliente] = (clientesMap[d.Cliente] || 0) + 1;
+                marcasMap[d.Marca] = (marcasMap[d.Marca] || 0) + 1;
+            });
+
+            if(document.getElementById('ind-garantia')) document.getElementById('ind-garantia').innerText = countGarantia;
+            if(document.getElementById('ind-contrato')) document.getElementById('ind-contrato').innerText = countContrato;
+            if(document.getElementById('ind-fuera')) document.getElementById('ind-fuera').innerText = countFuera;
+            if(document.getElementById('ind-prueba')) document.getElementById('ind-prueba').innerText = countPrueba;
+
+            actualizarGraficas(cargaMap, tiposMap, clientesMap, marcasMap);
+            configurarModalOportunidades(datosFiltradosCorpus);
+        }
+
+        function actualizarGraficas(carga, tipos, clientes, marcas) {
+            Object.values(charts).forEach(c => { if (c) c.destroy(); });
+            Chart.defaults.font.family = "'Inter', sans-serif";
+
+            const toData = (objMap) => {
+                let arr = Object.entries(objMap).sort((a, b) => b[1] - a[1]).slice(0, 10);
+                return { labels: arr.map(i => i[0]), data: arr.map(i => i[1]) };
+            };
+
+            const datosCarga = toData(carga);
+            if(document.getElementById('chartCargaTrabajo')) {
+                charts.carga = new Chart(document.getElementById('chartCargaTrabajo'), {
+                    type: 'bar',
+                    data: { labels: datosCarga.labels, datasets: [{ data: datosCarga.data, backgroundColor: '#14b8a6', borderRadius: 4 }] },
+                    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, datalabels: { display: false } } }
+                });
+            }
+
+            if(document.getElementById('chartTipos')) {
+                charts.tipos = new Chart(document.getElementById('chartTipos'), {
+                    type: 'doughnut',
+                    data: { labels: Object.keys(tipos), datasets: [{ data: Object.values(tipos), backgroundColor: palette }] },
+                    options: { 
+                        responsive: true, maintainAspectRatio: false, cutout: '50%', 
+                        plugins: { 
+                            legend: { position: 'right' },
+                            datalabels: {
+                                color: '#ffffff', font: { weight: 'bold' },
+                                formatter: (value, ctx) => {
+                                    let datasets = ctx.chart.data.datasets;
+                                    if (datasets.indexOf(ctx.dataset) === datasets.length - 1) {
+                                        let sum = 0; datasets[0].data.map(data => { sum += data; });
+                                        return Math.round((value / sum) * 100) + '%';
+                                    } else { return value; }
+                                }
+                            }
+                        } 
+                    }
+                });
+            }
+
+            const datosCl = toData(clientes);
+            if(document.getElementById('chartClientes')) {
+                charts.clientes = new Chart(document.getElementById('chartClientes'), {
+                    type: 'bar',
+                    data: { labels: datosCl.labels, datasets: [{ data: datosCl.data, backgroundColor: '#3b82f6', borderRadius: 4 }] },
+                    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, datalabels: { display: false } } }
+                });
+            }
+
+            const datosMc = toData(marcas);
+            if(document.getElementById('chartMarcas')) {
+                charts.marcas = new Chart(document.getElementById('chartMarcas'), {
+                    type: 'bar',
+                    data: { labels: datosMc.labels, datasets: [{ data: datosMc.data, backgroundColor: '#8b5cf6', borderRadius: 4 }] },
+                    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, datalabels: { display: false } } }
+                });
+            }
+        }
+
+        function configurarModalOportunidades(datosFiltradosCorpus) {
+            const btnCard = document.getElementById('card-ventas');
+            if(!btnCard) return;
+            
+            const newBtnCard = btnCard.cloneNode(true);
+            btnCard.parentNode.replaceChild(newBtnCard, btnCard);
+
+            newBtnCard.addEventListener('click', () => {
+                const tbody = document.getElementById('listaOportunidades');
+                tbody.innerHTML = '';
+                
+                const oportunidades = datosFiltradosCorpus.filter(d => d.oportunidad);
+                
+                if (oportunidades.length === 0) {
+                    document.getElementById('noOportunidades').classList.remove('hidden');
+                    tbody.parentElement.classList.add('hidden');
+                } else {
+                    document.getElementById('noOportunidades').classList.add('hidden');
+                    tbody.parentElement.classList.remove('hidden');
+                    
+                    oportunidades.forEach(op => {
+                        const tr = document.createElement('tr');
+                        tr.classList.add('hover:bg-slate-50', 'transition-colors');
+                        // Se mejoró el texto de la última celda con whitespace-normal y break-words para que no se corte
+                        tr.innerHTML = `
+                            <td class="px-4 py-3 font-bold text-brand-600 whitespace-nowrap">${op.ID}</td>
+                            <td class="px-4 py-3 text-slate-800 font-medium">${op.Cliente}</td>
+                            <td class="px-4 py-3 text-slate-500">${op.Equipo}</td>
+                            <td class="px-4 py-3"><span class="bg-slate-100 text-slate-600 px-2 py-1 rounded-md text-xs font-bold border border-slate-200">${op.Ingeniero}</span></td>
+                            <td class="px-4 py-3 text-xs text-slate-500 italic whitespace-normal min-w-[250px] break-words">${op.motivo_venta}</td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                }
+                document.getElementById('modalOportunidades').classList.remove('hidden');
+            });
+        }
+
+        if(document.getElementById('cerrarModal')) {
+            document.getElementById('cerrarModal').addEventListener('click', () => {
+                document.getElementById('modalOportunidades').classList.add('hidden');
+            });
+        }
+        
+        if(document.getElementById('monthFilter')) {
+            document.getElementById('monthFilter').addEventListener('change', (e) => renderizarDashboard(e.target.value));
+        }
+        
+        if(document.getElementById('btnAnual')) {
+            document.getElementById('btnAnual').addEventListener('click', () => {
+                document.getElementById('monthFilter').value = 'todos';
+                renderizarDashboard('todos');
+            });
+        }
+
+        window.onload = cargarDatos;
+    </script>
+</body>
+</html>
