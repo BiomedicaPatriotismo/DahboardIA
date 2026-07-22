@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard Operativo y Módulo de Clientes</title>
     
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
@@ -17,7 +17,7 @@
                 extend: {
                     fontFamily: { sans: ['Inter', 'sans-serif'] },
                     colors: {
-                        brand: { 50: '#f0fdfa', 100: '#ccfbf1', 500: '#14b8a6', 600: '#0d9488', 900: '#134e4a' },
+                        brand: { 50: '#f0fdfa', 100: '#ccfbf1', 200: '#99f6e4', 500: '#14b8a6', 600: '#0d9488', 700: '#0f766e', 900: '#134e4a' },
                         kpi: { blue: '#3b82f6', red: '#ef4444', green: '#10b981', orange: '#f97316', purple: '#8b5cf6' }
                     }
                 }
@@ -38,12 +38,34 @@
         .sidebar-scroll::-webkit-scrollbar-thumb { background: #475569; }
         .tab-active { border-bottom: 2px solid #0d9488; color: #0d9488; font-weight: 600; }
         .tab-inactive { color: #64748b; font-weight: 500; }
+
+        @media print {
+            body { overflow: visible !important; height: auto !important; background: white !important; }
+            .no-print { display: none !important; }
+            aside { display: none !important; }
+            main { overflow: visible !important; height: auto !important; }
+            
+            /* CSS específico para imprimir SOLO el Modal de Rutina cuando esté abierto */
+            body.printing-modal #dashboardContent, 
+            body.printing-modal #clienteContent { display: none !important; }
+            
+            body.printing-modal #modalRutina {
+                position: absolute !important; left: 0; top: 0; width: 100%; height: auto;
+                background: white !important; margin: 0; padding: 0; display: block !important;
+            }
+            body.printing-modal #modalRutina > div { 
+                box-shadow: none !important; border: none !important; margin: 0 !important; 
+                max-width: 100% !important; width: 100% !important; border-radius: 0 !important; padding: 0 !important;
+            }
+            .no-print-modal { display: none !important; }
+            .break-inside-avoid { break-inside: avoid; }
+        }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-800 h-screen flex">
 
     <!-- Barra Lateral -->
-    <aside class="w-64 bg-slate-900 text-slate-300 flex flex-col h-full shadow-xl z-20 shrink-0 transition-all duration-300">
+    <aside class="w-64 bg-slate-900 text-slate-300 flex flex-col h-full shadow-xl z-20 shrink-0 transition-all duration-300 no-print">
         <div class="p-6 bg-slate-950/50">
             <h2 class="text-xl font-bold text-white tracking-tight">Menú Principal</h2>
         </div>
@@ -65,14 +87,14 @@
     <main class="flex-1 overflow-y-auto relative h-full">
         
         <!-- Banners de Carga y Error -->
-        <div id="loadingBanner" class="max-w-7xl mx-auto px-4 mt-6 fade-in">
+        <div id="loadingBanner" class="max-w-7xl mx-auto px-4 mt-6 fade-in no-print">
             <div class="bg-blue-50 border-l-4 border-blue-500 text-blue-700 p-4 rounded-xl shadow-sm flex items-center">
                 <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                 <p class="font-bold">Conectando con Google Sheets y procesando datos...</p>
             </div>
         </div>
 
-        <div id="errorBanner" class="hidden max-w-7xl mx-auto px-4 mt-6 fade-in">
+        <div id="errorBanner" class="hidden max-w-7xl mx-auto px-4 mt-6 fade-in no-print">
             <div class="bg-red-50 border-l-4 border-red-500 text-red-700 p-4 rounded-xl shadow-sm">
                 <div class="flex items-center">
                     <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
@@ -83,14 +105,14 @@
         </div>
 
         <!-- ================= VISTA DASHBOARD GENERAL ================= -->
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-12" id="dashboardContent" style="display: none;">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-12 print-content" id="dashboardContent" style="display: none;">
             <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 bg-white p-6 rounded-2xl shadow-sm border border-slate-100 fade-in">
                 <div class="mb-4 lg:mb-0">
                     <h1 class="text-3xl font-bold text-slate-900 tracking-tight">Métricas Operativas</h1>
                     <p class="text-sm text-slate-500 mt-1">Análisis de rendimiento y cargas de trabajo global</p>
                 </div>
                 
-                <div class="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
+                <div class="flex flex-col sm:flex-row gap-3 w-full lg:w-auto no-print">
                     <div class="relative w-full sm:w-56">
                         <select id="monthFilter" class="appearance-none bg-slate-50 border border-slate-200 text-slate-900 text-sm font-medium rounded-xl focus:ring-brand-500 focus:border-brand-500 block w-full p-3 pr-10 cursor-pointer outline-none">
                             <option value="todos">Todos los meses (Anual)</option>
@@ -147,7 +169,7 @@
                     <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-2">Fallas Críticas</div>
                     <div class="text-3xl font-bold text-kpi-red" id="kpi-fallas">0%</div>
                 </div>
-                <div id="card-ventas" class="bg-white rounded-2xl p-5 shadow-sm border border-brand-100 flex flex-col justify-between md:col-span-2 cursor-pointer hover:shadow-md hover:border-brand-400 transition-all group">
+                <div id="card-ventas" class="bg-white rounded-2xl p-5 shadow-sm border border-brand-100 flex flex-col justify-between md:col-span-2 cursor-pointer hover:shadow-md hover:border-brand-400 transition-all group no-print">
                     <div class="flex justify-between items-start mb-2">
                         <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider group-hover:text-brand-600 transition-colors">Oportunidades de Venta (Clic para Detalle)</div>
                     </div>
@@ -182,18 +204,18 @@
             <!-- Gráficas -->
             <h2 class="text-lg font-bold text-slate-800 mb-4 px-2">Análisis Dinámico</h2>
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
-                <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100"><h3 class="text-base font-bold text-slate-800 mb-4">Carga de Trabajo</h3><div class="chart-wrapper"><canvas id="chartCargaTrabajo"></canvas></div></div>
-                <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100"><h3 class="text-base font-bold text-slate-800 mb-4">Tipos de Servicio</h3><div class="chart-wrapper"><canvas id="chartTipos"></canvas></div></div>
-                <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100"><h3 class="text-base font-bold text-slate-800 mb-4">Principales Clientes</h3><div class="chart-wrapper"><canvas id="chartClientes"></canvas></div></div>
-                <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100"><h3 class="text-base font-bold text-slate-800 mb-4">Principales Marcas</h3><div class="chart-wrapper"><canvas id="chartMarcas"></canvas></div></div>
+                <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 break-inside-avoid"><h3 class="text-base font-bold text-slate-800 mb-4">Carga de Trabajo</h3><div class="chart-wrapper"><canvas id="chartCargaTrabajo"></canvas></div></div>
+                <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 break-inside-avoid"><h3 class="text-base font-bold text-slate-800 mb-4">Tipos de Servicio</h3><div class="chart-wrapper"><canvas id="chartTipos"></canvas></div></div>
+                <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 break-inside-avoid"><h3 class="text-base font-bold text-slate-800 mb-4">Principales Clientes</h3><div class="chart-wrapper"><canvas id="chartClientes"></canvas></div></div>
+                <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 break-inside-avoid"><h3 class="text-base font-bold text-slate-800 mb-4">Principales Marcas</h3><div class="chart-wrapper"><canvas id="chartMarcas"></canvas></div></div>
             </div>
         </div>
 
         <!-- ================= VISTA: DETALLE DE CLIENTE ================= -->
-        <div id="clienteContent" class="hidden max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-12 fade-in">
+        <div id="clienteContent" class="hidden max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-12 fade-in print-content">
             
             <!-- Cabecera de Información de Cliente -->
-            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 break-inside-avoid">
                 <div>
                     <h1 class="text-3xl font-bold text-slate-900 tracking-tight" id="clienteTitulo">Nombre Hospital</h1>
                     <div class="mt-3 flex flex-col sm:flex-row gap-4 text-sm text-slate-600">
@@ -214,7 +236,7 @@
             </div>
 
             <!-- KPIs del Cliente -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 break-inside-avoid">
                 <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-100">
                     <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-1">Total Servicios Ejecutados</div>
                     <div class="text-3xl font-bold text-slate-800" id="clienteTotalServicios">0</div>
@@ -231,7 +253,7 @@
 
             <!-- Pestañas de Mantenimiento -->
             <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-                <div class="border-b border-slate-200 bg-slate-50 px-6 flex gap-6">
+                <div class="border-b border-slate-200 bg-slate-50 px-6 flex gap-6 no-print">
                     <button id="tabPrev" onclick="cambiarPestana('prev')" class="py-4 px-2 text-sm focus:outline-none tab-active transition-colors">
                         Mantenimiento Preventivo / Calibración
                     </button>
@@ -243,17 +265,27 @@
                 <div class="p-6">
                     <!-- Contenido Pestaña Preventivos -->
                     <div id="contentPrev">
-                        <div class="flex flex-col sm:flex-row gap-4 mb-6 justify-between items-center">
-                            <input type="text" id="filtroTextoPrev" placeholder="Buscar por equipo, marca, serie..." class="w-full sm:w-1/2 p-2.5 border border-slate-300 rounded-lg text-sm focus:ring-brand-500 outline-none">
-                            <div class="flex items-center gap-2 w-full sm:w-auto">
-                                <label class="text-xs font-semibold text-slate-500 uppercase">Mes Próx. Mant:</label>
-                                <select id="filtroMesPrev" class="p-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-brand-500 outline-none">
-                                    <option value="todos">Todos</option>
-                                    <option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option>
-                                    <option value="4">Abril</option><option value="5">Mayo</option><option value="6">Junio</option>
-                                    <option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option>
-                                    <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
-                                </select>
+                        <div class="flex flex-col xl:flex-row gap-4 mb-6 justify-between items-center no-print">
+                            <input type="text" id="filtroTextoPrev" placeholder="Buscar equipo, serie..." class="w-full xl:w-1/3 p-2.5 border border-slate-300 rounded-lg text-sm focus:ring-brand-500 outline-none">
+                            <div class="flex flex-wrap items-center gap-3 w-full xl:w-auto justify-end">
+                                <div class="flex items-center gap-2">
+                                    <label class="text-xs font-semibold text-slate-500 uppercase whitespace-nowrap">Mes Próx. Mant:</label>
+                                    <select id="filtroMesPrev" class="p-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-brand-500 outline-none">
+                                        <option value="todos">Todos</option>
+                                        <option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option>
+                                        <option value="4">Abril</option><option value="5">Mayo</option><option value="6">Junio</option>
+                                        <option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option>
+                                        <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
+                                    </select>
+                                </div>
+                                <button onclick="imprimirTablaPrev()" class="bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition-colors shadow-sm">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                                    Imprimir Tabla
+                                </button>
+                                <button onclick="exportarCSVPrev()" class="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition-colors shadow-sm">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                    Exportar CSV
+                                </button>
                             </div>
                         </div>
                         <div class="overflow-x-auto rounded-lg border border-slate-200">
@@ -265,6 +297,7 @@
                                         <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Área</th>
                                         <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Fecha Ejecución</th>
                                         <th class="px-4 py-3 text-left text-xs font-semibold text-brand-600 uppercase">Próx. Mantenimiento</th>
+                                        <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase no-print">Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody id="tablaPreventivos" class="divide-y divide-slate-100 text-sm bg-white">
@@ -276,12 +309,11 @@
 
                     <!-- Contenido Pestaña Correctivos -->
                     <div id="contentCorr" class="hidden">
-                        <div class="flex flex-col sm:flex-row gap-4 mb-6 justify-end items-center">
+                        <div class="flex flex-col sm:flex-row gap-4 mb-6 justify-end items-center no-print">
                             <div class="flex items-center gap-2 w-full sm:w-auto">
                                 <label class="text-xs font-semibold text-slate-500 uppercase">Mes de Ejecución:</label>
                                 <select id="filtroMesCorr" class="p-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-brand-500 outline-none">
                                     <option value="todos">Todos los meses</option>
-                                    <!-- Opciones generadas en JS según la data -->
                                 </select>
                             </div>
                         </div>
@@ -306,11 +338,100 @@
             </div>
 
         </div>
-
     </main>
 
+    <!-- Modal Rutina de Mantenimiento -->
+    <div id="modalRutina" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm hidden items-center justify-center z-50 overflow-y-auto py-8 no-print">
+        <div class="bg-white w-full max-w-4xl rounded-xl shadow-2xl relative flex flex-col mx-4 my-auto print:w-full print:max-w-none print:shadow-none print:rounded-none">
+            
+            <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-xl no-print-modal sticky top-0 z-10">
+                <h3 class="text-lg font-bold text-slate-800">Generador de Rutina</h3>
+                <div class="flex gap-3 items-center">
+                    <button onclick="imprimirRutina()" class="bg-brand-600 hover:bg-brand-700 transition-colors text-white px-5 py-2 rounded-lg text-sm font-semibold shadow-sm flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                        Imprimir / Guardar PDF
+                    </button>
+                    <button onclick="cerrarRutina()" class="text-slate-400 hover:text-slate-600 hover:bg-slate-200 bg-white border border-slate-200 rounded-full p-2 transition-colors">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="p-8 text-slate-800 flex-1 overflow-y-auto" id="rutinaPrintableArea">
+                <!-- Header Reporte -->
+                <div class="text-center mb-8 border-b-2 border-slate-800 pb-4">
+                    <h2 class="text-2xl font-black uppercase tracking-wide">Reporte de Mantenimiento Preventivo</h2>
+                    <div class="flex justify-between items-center mt-2 text-sm font-medium text-slate-600">
+                        <p>FECHA: <span class="font-bold text-slate-900 border-b border-slate-400 pb-0.5 px-2" id="rutFecha"></span></p>
+                        <p>FOLIO: <span class="font-bold text-brand-700 text-lg" id="rutFolio"></span></p>
+                    </div>
+                </div>
+
+                <!-- Info Cliente -->
+                <div class="mb-6">
+                    <h4 class="font-bold bg-slate-100 px-3 py-1.5 uppercase text-xs tracking-wider mb-3 border-l-4 border-slate-800">I. Datos de la Unidad Hospitalaria</h4>
+                    <div class="grid grid-cols-2 gap-y-3 gap-x-6 text-sm px-3">
+                        <div class="col-span-2"><span class="font-semibold text-slate-500">Cliente:</span> <span id="rutCliente" class="font-bold text-slate-900"></span></div>
+                        <div class="col-span-2"><span class="font-semibold text-slate-500">Dirección:</span> <span id="rutDir"></span></div>
+                        <div><span class="font-semibold text-slate-500">Teléfono:</span> <span id="rutTel"></span></div>
+                        <div><span class="font-semibold text-slate-500">Área/Depto:</span> <span id="rutArea" class="font-bold"></span></div>
+                    </div>
+                </div>
+
+                <!-- Info Equipo -->
+                <div class="mb-6">
+                    <h4 class="font-bold bg-slate-100 px-3 py-1.5 uppercase text-xs tracking-wider mb-3 border-l-4 border-slate-800">II. Datos del Equipo</h4>
+                    <div class="grid grid-cols-2 md:grid-cols-3 gap-y-3 gap-x-4 text-sm px-3 border border-slate-200 rounded-lg p-4 bg-slate-50/50 mb-3">
+                        <div class="col-span-2 md:col-span-3"><span class="font-semibold text-slate-500 block text-xs">Equipo:</span> <span id="rutEq" class="font-bold text-base"></span></div>
+                        <div><span class="font-semibold text-slate-500 block text-xs">Marca:</span> <span id="rutMarca"></span></div>
+                        <div><span class="font-semibold text-slate-500 block text-xs">Modelo:</span> <span id="rutModelo"></span></div>
+                        <div><span class="font-semibold text-slate-500 block text-xs">No. Serie:</span> <span id="rutSerie" class="font-bold"></span></div>
+                        <div><span class="font-semibold text-slate-500 block text-xs">No. Inventario:</span> <span id="rutInv"></span></div>
+                        <div><span class="font-semibold text-slate-500 block text-xs">Ingeniero Asignado:</span> <span id="rutIng"></span></div>
+                        <div><span class="font-semibold text-slate-500 block text-xs">Próximo Mantenimiento:</span> <span id="rutProx" class="font-bold text-brand-600"></span></div>
+                    </div>
+                    
+                    <h4 class="font-bold bg-slate-100 px-3 py-1.5 uppercase text-xs tracking-wider mb-3 border-l-4 border-slate-800">III. Datos del Equipo de Calibración / Patrón</h4>
+                    <div class="text-sm px-3 border border-slate-200 rounded-lg p-3 bg-slate-50/50">
+                        <span id="rutEqCalibracion" class="font-medium text-slate-800"></span>
+                    </div>
+                </div>
+
+                <!-- Actividades (Checklist) -->
+                <div class="mb-8 break-inside-avoid">
+                    <h4 class="font-bold bg-slate-100 px-3 py-1.5 uppercase text-xs tracking-wider mb-3 border-l-4 border-slate-800">
+                        IV. Check-List de Actividades
+                    </h4>
+                    <div id="rutActividades" class="px-2">
+                        <!-- Inyectado por JS -->
+                    </div>
+                </div>
+
+                <!-- Gráfica de Error -->
+                <div class="mb-8 break-inside-avoid" id="rutinaChartContainer" style="display: none;">
+                    <h4 class="font-bold bg-slate-100 px-3 py-1.5 uppercase text-xs tracking-wider mb-3 border-l-4 border-slate-800">
+                        V. Gráfica de Error (Medición vs Nominal)
+                    </h4>
+                    <div class="relative w-full h-64 border border-slate-200 rounded-lg p-4 bg-white">
+                        <canvas id="rutinaChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Evidencia Fotográfica -->
+                <div class="mb-4 break-inside-avoid" id="rutinaFotosContainer" style="display: none;">
+                    <h4 class="font-bold bg-slate-100 px-3 py-1.5 uppercase text-xs tracking-wider mb-3 border-l-4 border-slate-800">
+                        VI. Evidencia Fotográfica
+                    </h4>
+                    <div id="rutinaFotos" class="flex flex-wrap gap-4 px-2">
+                        <!-- Inyectado por JS -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal Ventas -->
-    <div id="modalOportunidades" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden flex items-center justify-center z-50 fade-in">
+    <div id="modalOportunidades" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden flex items-center justify-center z-50 fade-in no-print">
         <div class="bg-white rounded-2xl w-11/12 max-w-5xl max-h-[85vh] overflow-hidden shadow-2xl flex flex-col">
             <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
                 <h3 class="text-lg font-bold text-slate-800">Detalle de Oportunidades de Venta</h3>
@@ -341,6 +462,8 @@
         Chart.register(ChartDataLabels);
 
         let charts = { carga: null, tipos: null, clientes: null, marcas: null };
+        let chartRutinaObj = null; // Para la grafica del modal
+        
         let datosAgrupadosPorMes = []; 
         let datosDetalleOrdenes = [];
         let clientesUnicos = [];
@@ -415,14 +538,10 @@
             
             if(data.length === 0) return;
             
-            // HERRAMIENTA DE BÚSQUEDA DINÁMICA DE COLUMNAS
             const llaves = Object.keys(data[0]);
-            console.log("=== DIAGNÓSTICO DE COLUMNAS ===");
-            console.log("Los encabezados reales leídos de tu Excel son:", llaves);
-            
             const findCol = (palabras) => llaves.find(llave => palabras.some(p => llave.includes(p)));
             
-            // Busca las columnas mediante fragmentos de palabras (súper flexible)
+            // Busca columnas base
             const cMes = findCol(['mes']);
             const cID = findCol(['id unico', 'idunico', 'submission id', 'folio', 'orden']);
             const cIng = findCol(['ingeniero', 'tecnico', 'encargado']);
@@ -436,7 +555,7 @@
             const cArea = findCol(['area', 'servicio:', 'departamento', 'ubicacion']);
             const cFecha = findCol(['fecha', 'marca temporal', 'timestamp', 'ejecucion']);
             
-            // Datos de la unidad
+            // Datos Contacto
             const cDir = findCol(['direccion', 'domicilio', 'calle']);
             const cTel = findCol(['telefono', 'tel', 'celular']);
             const cCor = findCol(['correo', 'email']);
@@ -444,8 +563,10 @@
             const cEst = findCol(['estatus', 'seguimiento']);
             const cObs = findCol(['observacion', 'detalle', 'falla']);
 
-            console.log("Asignaciones automáticas detectadas:");
-            console.log("Serie:", cSer, "| Inventario:", cInv, "| Área:", cArea, "| Fecha:", cFecha);
+            // Nuevas Columnas para Rutina
+            const cValores = findCol(['valores de medicion', 'valores', 'medicion']);
+            const cArchivos = findCol(['carga de archivos', 'archivos', 'evidencia', 'fotos']);
+            const cCalibracion = findCol(['datos del equipo de calibracion', 'equipo de calibracion', 'patron', 'calibracion']);
 
             data.forEach(row => {
                 let obj = {};
@@ -466,6 +587,11 @@
                 obj['Direccion'] = cDir ? (row[cDir] || 'Dirección no registrada') : 'Dirección no registrada';
                 obj['Telefono'] = cTel ? (row[cTel] || 'Teléfono no registrado') : 'Teléfono no registrado';
                 obj['Correo'] = cCor ? (row[cCor] || 'contacto@hospital.com') : 'contacto@hospital.com';
+
+                // Guardar datos para Modal de Rutina
+                obj['ValoresMedicion'] = cValores ? (row[cValores] || '') : '';
+                obj['Archivos'] = cArchivos ? (row[cArchivos] || '') : '';
+                obj['EquipoCalibracion'] = cCalibracion ? (row[cCalibracion] || 'No se especificó equipo patrón') : 'No se especificó equipo patrón';
 
                 let tipoLower = obj['Tipo de Servicio'].toLowerCase();
                 obj['esPrev'] = tipoLower.includes('preventivo') || tipoLower.includes('calibracion');
@@ -560,7 +686,6 @@
             const dataCliente = datosDetalleOrdenes.filter(d => d.Cliente === clienteNombre);
             
             if(dataCliente.length > 0) {
-                // Tomamos el primer registro válido que tenga información
                 let regConInfo = dataCliente.find(d => d.Direccion !== 'Dirección no registrada') || dataCliente[0];
                 document.getElementById('clienteDireccion').innerText = regConInfo.Direccion;
                 document.getElementById('clienteTelefono').innerText = regConInfo.Telefono;
@@ -621,6 +746,33 @@
             }
         }
 
+        // Exportar a CSV (Para abrir en Google Sheets)
+        function exportarCSVPrev() {
+            const textoBusqueda = document.getElementById('filtroTextoPrev').value.toLowerCase();
+            const mesPruebas = document.getElementById('filtroMesPrev').value;
+            let filtrados = dataPreventivos.filter(d => {
+                let coincideTexto = d.Equipo.toLowerCase().includes(textoBusqueda) || d.Marca.toLowerCase().includes(textoBusqueda) || d.Serie.toLowerCase().includes(textoBusqueda) || d.Modelo.toLowerCase().includes(textoBusqueda);
+                let coincideMes = mesPruebas === 'todos' || d.MesProximoMant.toString() === mesPruebas;
+                return coincideTexto && coincideMes;
+            });
+
+            if(filtrados.length === 0) return alert("No hay datos para exportar");
+
+            let csv = "\uFEFFEquipo,Marca,Modelo,Serie,Inventario,Area,Fecha Ejecucion,Proximo Mantenimiento\n";
+            filtrados.forEach(d => {
+                csv += `"${d.Equipo}","${d.Marca}","${d.Modelo}","${d.Serie}","${d.Inventario}","${d.Area}","${d.FechaEjecucionStr}","${d.ProximoMantStr}"\n`;
+            });
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = `Mantenimientos_Preventivos_${clienteActual.replace(/\s+/g, '_')}.csv`;
+            link.click();
+        }
+
+        function imprimirTablaPrev() {
+            window.print();
+        }
+
         function renderTablaPreventivos() {
             const tbody = document.getElementById('tablaPreventivos');
             tbody.innerHTML = '';
@@ -633,14 +785,12 @@
                                     d.Marca.toLowerCase().includes(textoBusqueda) ||
                                     d.Serie.toLowerCase().includes(textoBusqueda) ||
                                     d.Modelo.toLowerCase().includes(textoBusqueda);
-                
                 let coincideMes = mesPruebas === 'todos' || d.MesProximoMant.toString() === mesPruebas;
-                
                 return coincideTexto && coincideMes;
             });
 
             if(filtrados.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-8 text-center text-slate-500">No hay mantenimientos preventivos que coincidan con la búsqueda.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-8 text-center text-slate-500">No hay mantenimientos preventivos que coincidan con la búsqueda.</td></tr>`;
                 return;
             }
 
@@ -659,9 +809,145 @@
                     <td class="px-4 py-3 text-slate-600">${d.Area}</td>
                     <td class="px-4 py-3 text-slate-600">${d.FechaEjecucionStr}</td>
                     <td class="px-4 py-3 font-bold text-brand-600">${d.ProximoMantStr}</td>
+                    <td class="px-4 py-3 text-right no-print">
+                        <button onclick="abrirRutina('${d.ID}')" class="text-brand-600 hover:text-brand-800 hover:bg-brand-50 px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors border border-transparent hover:border-brand-200 shadow-sm bg-white">
+                            Generar Rutina
+                        </button>
+                    </td>
                 `;
                 tbody.appendChild(tr);
             });
+        }
+
+        function abrirRutina(id) {
+            const eq = dataPreventivos.find(d => d.ID === id);
+            if(!eq) return;
+
+            const modal = document.getElementById('modalRutina');
+            document.body.classList.add('printing-modal'); // Ayuda al CSS de impresion
+            
+            // Llenar Datos Principales
+            document.getElementById('rutFecha').innerText = eq.FechaEjecucionStr !== 'Sin Fecha Registrada' ? eq.FechaEjecucionStr : new Date().toLocaleDateString('es-MX');
+            document.getElementById('rutFolio').innerText = eq.ID !== 'S/N' ? eq.ID : "RUT-" + Math.floor(Math.random()*10000);
+            
+            document.getElementById('rutCliente').innerText = clienteActual;
+            document.getElementById('rutDir').innerText = document.getElementById('clienteDireccion').innerText;
+            document.getElementById('rutTel').innerText = document.getElementById('clienteTelefono').innerText;
+            document.getElementById('rutArea').innerText = eq.Area;
+            
+            document.getElementById('rutEq').innerText = eq.Equipo;
+            document.getElementById('rutMarca').innerText = eq.Marca;
+            document.getElementById('rutModelo').innerText = eq.Modelo;
+            document.getElementById('rutSerie').innerText = eq.Serie;
+            document.getElementById('rutInv').innerText = eq.Inventario;
+            document.getElementById('rutIng').innerText = eq.Ingeniero;
+            document.getElementById('rutProx').innerText = eq.ProximoMantStr;
+            document.getElementById('rutEqCalibracion').innerText = eq.EquipoCalibracion;
+
+            // Generar Checklist Dinámico
+            const rutActividades = document.getElementById('rutActividades');
+            const actividadesEstandar = [
+                "Limpieza integral exterior e interior del equipo",
+                "Revisión de integridad física y mecánica (carcasas, soportes, ruedas)",
+                "Verificación del estado de cables, conectores y enchufes",
+                "Pruebas de encendido y ejecución de autodiagnóstico",
+                "Comprobación de alarmas visuales y sonoras",
+                "Verificación de parámetros y pruebas funcionales básicas",
+                "Pruebas de seguridad eléctrica",
+                "Calibración / Ajuste contra patrón de referencia"
+            ];
+            
+            let checklistHTML = '<table class="w-full text-sm text-left border-collapse border border-slate-200"><thead class="bg-slate-100"><tr><th class="border border-slate-200 p-2">Actividad a realizar</th><th class="border border-slate-200 p-2 text-center w-24">Aprobado</th><th class="border border-slate-200 p-2 text-center w-24">Rechazado</th><th class="border border-slate-200 p-2 text-center w-16">N/A</th></tr></thead><tbody>';
+            
+            actividadesEstandar.forEach((act, i) => {
+                checklistHTML += `
+                    <tr class="hover:bg-slate-50 transition-colors">
+                        <td class="border border-slate-200 p-2 font-medium text-slate-700">${act}</td>
+                        <td class="border border-slate-200 p-2 text-center"><input type="radio" name="chk_${i}" class="w-4 h-4 text-brand-600 focus:ring-brand-500 cursor-pointer" checked></td>
+                        <td class="border border-slate-200 p-2 text-center"><input type="radio" name="chk_${i}" class="w-4 h-4 text-red-600 focus:ring-red-500 cursor-pointer"></td>
+                        <td class="border border-slate-200 p-2 text-center"><input type="radio" name="chk_${i}" class="w-4 h-4 text-slate-400 focus:ring-slate-400 cursor-pointer"></td>
+                    </tr>
+                `;
+            });
+            checklistHTML += '</tbody></table>';
+            rutActividades.innerHTML = checklistHTML;
+
+            // Procesar Gráfica de Error (Extrae números de 'Valores de Medición')
+            const chartContainer = document.getElementById('rutinaChartContainer');
+            if (chartRutinaObj) { chartRutinaObj.destroy(); chartRutinaObj = null; }
+            
+            let textMedicion = String(eq.ValoresMedicion);
+            let nums = textMedicion.match(/-?\d+(\.\d+)?/g);
+            
+            if (nums && nums.length >= 2 && nums.length % 2 === 0) {
+                chartContainer.style.display = 'block';
+                let labels = [];
+                let errors = [];
+                for(let i=0; i<nums.length; i+=2) {
+                    let nominal = parseFloat(nums[i]);
+                    let real = parseFloat(nums[i+1]);
+                    labels.push(`N: ${nominal}`);
+                    errors.push(real - nominal);
+                }
+                
+                const ctx = document.getElementById('rutinaChart').getContext('2d');
+                chartRutinaObj = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Error de Medición (Real - Nominal)',
+                            data: errors,
+                            borderColor: '#ef4444',
+                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                            borderWidth: 2,
+                            pointBackgroundColor: '#ef4444',
+                            pointRadius: 5,
+                            fill: true,
+                            tension: 0.3
+                        }]
+                    },
+                    options: { 
+                        responsive: true, 
+                        maintainAspectRatio: false,
+                        plugins: { legend: { position: 'bottom' }, datalabels: { display: true, align: 'top', font: {size: 10} } },
+                        scales: { y: { title: { display: true, text: 'Variación / Error' } } }
+                    }
+                });
+            } else {
+                chartContainer.style.display = 'none';
+            }
+
+            // Procesar Fotos desde Google Drive
+            const fotosContainer = document.getElementById('rutinaFotos');
+            const fotosWrapper = document.getElementById('rutinaFotosContainer');
+            if (eq.Archivos && eq.Archivos.trim() !== '') {
+                let links = eq.Archivos.split(',');
+                let imgHtml = links.map(link => {
+                    link = link.trim();
+                    if(!link) return '';
+                    let idMatch = link.match(/id=([^&]+)/) || link.match(/\/d\/([a-zA-Z0-9_-]+)/);
+                    let src = idMatch ? `https://drive.google.com/uc?id=${idMatch[1]}` : link;
+                    return `<img src="${src}" class="h-48 w-48 object-cover rounded-lg shadow-sm border border-slate-200" onerror="this.style.display='none'">`;
+                }).join('');
+                fotosContainer.innerHTML = imgHtml;
+                fotosWrapper.style.display = 'block';
+            } else {
+                fotosWrapper.style.display = 'none';
+            }
+
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function cerrarRutina() {
+            document.body.classList.remove('printing-modal');
+            document.getElementById('modalRutina').classList.add('hidden');
+            document.getElementById('modalRutina').classList.remove('flex');
+        }
+
+        function imprimirRutina() {
+            window.print();
         }
 
         function renderTablaCorrectivos() {
