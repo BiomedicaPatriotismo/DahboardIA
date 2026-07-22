@@ -374,7 +374,6 @@
                         <div class="col-span-2"><span class="font-semibold text-slate-500">Cliente:</span> <span id="rutCliente" class="font-bold text-slate-900"></span></div>
                         <div class="col-span-2"><span class="font-semibold text-slate-500">Dirección:</span> <span id="rutDir"></span></div>
                         <div><span class="font-semibold text-slate-500">Teléfono:</span> <span id="rutTel"></span></div>
-                        <div><span class="font-semibold text-slate-500">Área/Depto:</span> <span id="rutArea" class="font-bold"></span></div>
                     </div>
                 </div>
 
@@ -382,7 +381,8 @@
                 <div class="mb-6">
                     <h4 class="font-bold bg-slate-100 px-3 py-1.5 uppercase text-xs tracking-wider mb-3 border-l-4 border-slate-800">II. Datos del Equipo</h4>
                     <div class="grid grid-cols-2 md:grid-cols-3 gap-y-3 gap-x-4 text-sm px-3 border border-slate-200 rounded-lg p-4 bg-slate-50/50 mb-3">
-                        <div class="col-span-2 md:col-span-3"><span class="font-semibold text-slate-500 block text-xs">Equipo:</span> <span id="rutEq" class="font-bold text-base"></span></div>
+                        <div class="col-span-2"><span class="font-semibold text-slate-500 block text-xs">Equipo:</span> <span id="rutEq" class="font-bold text-base"></span></div>
+                        <div><span class="font-semibold text-slate-500 block text-xs">Área/Depto:</span> <span id="rutArea" class="font-bold text-base text-slate-800"></span></div>
                         <div><span class="font-semibold text-slate-500 block text-xs">Marca:</span> <span id="rutMarca"></span></div>
                         <div><span class="font-semibold text-slate-500 block text-xs">Modelo:</span> <span id="rutModelo"></span></div>
                         <div><span class="font-semibold text-slate-500 block text-xs">No. Serie:</span> <span id="rutSerie" class="font-bold"></span></div>
@@ -407,13 +407,25 @@
                     </div>
                 </div>
 
-                <!-- Gráfica de Error -->
-                <div class="mb-8 break-inside-avoid" id="rutinaChartContainer" style="display: none;">
+                <!-- Análisis de Valores de Medición -->
+                <div class="mb-8 break-inside-avoid" id="rutinaValoresContainer" style="display: none;">
                     <h4 class="font-bold bg-slate-100 px-3 py-1.5 uppercase text-xs tracking-wider mb-3 border-l-4 border-slate-800">
-                        V. Gráfica de Error (Medición vs Nominal)
+                        V. Análisis de Valores de Medición
                     </h4>
-                    <div class="relative w-full h-64 border border-slate-200 rounded-lg p-4 bg-white">
-                        <canvas id="rutinaChart"></canvas>
+                    <div class="mb-4 px-3 py-2 text-sm text-slate-700 bg-slate-50 rounded-lg border border-slate-200 font-medium" id="rutinaTextoMedicion">
+                        <!-- Texto original inyectado por JS -->
+                    </div>
+                    
+                    <div class="flex flex-col gap-6 items-start">
+                        <!-- Tabla Dinámica -->
+                        <div id="rutinaTablaContainer" class="overflow-x-auto w-full shadow-sm rounded-lg border border-slate-200 bg-white">
+                            <!-- Inyectado por JS -->
+                        </div>
+                        
+                        <!-- Gráfico Dinámico -->
+                        <div id="rutinaChartWrapper" class="relative w-full h-72 border border-slate-200 rounded-lg p-4 bg-white shadow-sm">
+                            <canvas id="rutinaChart"></canvas>
+                        </div>
                     </div>
                 </div>
 
@@ -564,7 +576,7 @@
             const cObs = findCol(['observacion', 'detalle', 'falla']);
 
             // Nuevas Columnas para Rutina
-            const cValores = findCol(['valores de medicion', 'valores', 'medicion']);
+            const cValores = findCol(['valores de medicion', 'valores', 'medicion', 'resultados', 'pruebas']);
             const cArchivos = findCol(['carga de archivos', 'archivos', 'evidencia', 'fotos']);
             const cCalibracion = findCol(['datos del equipo de calibracion', 'equipo de calibracion', 'patron', 'calibracion']);
 
@@ -872,50 +884,131 @@
             checklistHTML += '</tbody></table>';
             rutActividades.innerHTML = checklistHTML;
 
-            // Procesar Gráfica de Error (Extrae números de 'Valores de Medición')
-            const chartContainer = document.getElementById('rutinaChartContainer');
+            // Procesar Gráfica de Error y Tabla de Valores
+            const valoresContainer = document.getElementById('rutinaValoresContainer');
+            const textoMedicionEl = document.getElementById('rutinaTextoMedicion');
+            const tablaContainer = document.getElementById('rutinaTablaContainer');
+            const chartWrapper = document.getElementById('rutinaChartWrapper');
+            
             if (chartRutinaObj) { chartRutinaObj.destroy(); chartRutinaObj = null; }
             
-            let textMedicion = String(eq.ValoresMedicion);
-            let nums = textMedicion.match(/-?\d+(\.\d+)?/g);
+            let textMedicion = String(eq.ValoresMedicion || '').trim();
             
-            if (nums && nums.length >= 2 && nums.length % 2 === 0) {
-                chartContainer.style.display = 'block';
-                let labels = [];
-                let errors = [];
-                for(let i=0; i<nums.length; i+=2) {
-                    let nominal = parseFloat(nums[i]);
-                    let real = parseFloat(nums[i+1]);
-                    labels.push(`N: ${nominal}`);
-                    errors.push(real - nominal);
-                }
+            if (textMedicion && textMedicion !== 'undefined' && textMedicion !== 'N/A' && textMedicion !== '') {
+                valoresContainer.style.display = 'block';
+                textoMedicionEl.innerHTML = `<span class="font-bold text-slate-900">Registro Original:</span> ${textMedicion}`;
                 
-                const ctx = document.getElementById('rutinaChart').getContext('2d');
-                chartRutinaObj = new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        labels: labels,
-                        datasets: [{
-                            label: 'Error de Medición (Real - Nominal)',
-                            data: errors,
-                            borderColor: '#ef4444',
-                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                            borderWidth: 2,
-                            pointBackgroundColor: '#ef4444',
-                            pointRadius: 5,
-                            fill: true,
-                            tension: 0.3
-                        }]
-                    },
-                    options: { 
-                        responsive: true, 
-                        maintainAspectRatio: false,
-                        plugins: { legend: { position: 'bottom' }, datalabels: { display: true, align: 'top', font: {size: 10} } },
-                        scales: { y: { title: { display: true, text: 'Variación / Error' } } }
+                // Extraer números, incluyendo negativos y decimales
+                let nums = textMedicion.match(/-?\d+(\.\d+)?/g);
+                
+                if (nums && nums.length > 0) {
+                    chartWrapper.style.display = 'block';
+                    let labels = [];
+                    let nominals = [];
+                    let reales = [];
+                    let errors = [];
+                    let tablaHTML = '<table class="min-w-full text-sm text-left border-collapse"><thead class="bg-slate-800 text-white"><tr><th class="p-3 font-semibold rounded-tl-lg">Punto</th><th class="p-3 font-semibold">Nominal</th><th class="p-3 font-semibold">Real</th><th class="p-3 font-semibold text-center rounded-tr-lg">Variación / Error</th></tr></thead><tbody class="divide-y divide-slate-200 bg-white">';
+                    
+                    if (nums.length % 2 === 0 && nums.length >= 2) {
+                        // Asumimos pares (Nominal, Real)
+                        for(let i=0; i<nums.length; i+=2) {
+                            let nominal = parseFloat(nums[i]);
+                            let real = parseFloat(nums[i+1]);
+                            let error = parseFloat((real - nominal).toFixed(4));
+                            labels.push(`P${i/2 + 1}`);
+                            nominals.push(nominal);
+                            reales.push(real);
+                            errors.push(error);
+                            
+                            // Tolerancia del 10% para colorear en rojo el error
+                            let errorClass = Math.abs(error) > (Math.abs(nominal) * 0.1) ? 'text-red-600 font-bold bg-red-50' : 'text-slate-700';
+                            
+                            tablaHTML += `<tr class="hover:bg-slate-50 transition-colors"><td class="p-3 font-medium text-slate-800">Punto ${i/2 + 1}</td><td class="p-3">${nominal}</td><td class="p-3 font-semibold">${real}</td><td class="p-3 text-center ${errorClass}">${error > 0 ? '+'+error : error}</td></tr>`;
+                        }
+                    } else {
+                        // Solo valores individuales (sin nominal vs real)
+                        tablaHTML = '<table class="min-w-full text-sm text-left border-collapse"><thead class="bg-slate-800 text-white"><tr><th class="p-3 font-semibold rounded-tl-lg">Punto / Lectura</th><th class="p-3 font-semibold rounded-tr-lg">Valor Registrado</th></tr></thead><tbody class="divide-y divide-slate-200 bg-white">';
+                        for(let i=0; i<nums.length; i++) {
+                            let val = parseFloat(nums[i]);
+                            labels.push(`Lec ${i+1}`);
+                            reales.push(val);
+                            tablaHTML += `<tr class="hover:bg-slate-50 transition-colors"><td class="p-3 font-medium text-slate-800">Lectura ${i+1}</td><td class="p-3 font-semibold text-brand-700">${val}</td></tr>`;
+                        }
                     }
-                });
+                    tablaHTML += '</tbody></table>';
+                    tablaContainer.innerHTML = tablaHTML;
+                    
+                    const ctx = document.getElementById('rutinaChart').getContext('2d');
+                    
+                    let datasets = [];
+                    if (nominals.length > 0) {
+                        datasets = [
+                            {
+                                label: 'Valor Nominal',
+                                data: nominals,
+                                borderColor: '#94a3b8',
+                                backgroundColor: '#94a3b8',
+                                borderDash: [5, 5],
+                                fill: false,
+                                tension: 0.1,
+                                yAxisID: 'y'
+                            },
+                            {
+                                label: 'Medición Real',
+                                data: reales,
+                                borderColor: '#3b82f6',
+                                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                fill: true,
+                                tension: 0.3,
+                                pointRadius: 4,
+                                yAxisID: 'y'
+                            },
+                            {
+                                type: 'bar',
+                                label: 'Margen de Error',
+                                data: errors,
+                                backgroundColor: errors.map(e => e > 0 ? 'rgba(239, 68, 68, 0.7)' : (e < 0 ? 'rgba(245, 158, 11, 0.7)' : 'rgba(16, 185, 129, 0.7)')),
+                                yAxisID: 'y1'
+                            }
+                        ];
+                    } else {
+                        datasets = [
+                            {
+                                label: 'Valores Registrados',
+                                data: reales,
+                                borderColor: '#14b8a6',
+                                backgroundColor: 'rgba(20, 184, 166, 0.2)',
+                                fill: true,
+                                tension: 0.3,
+                                pointRadius: 5
+                            }
+                        ];
+                    }
+
+                    chartRutinaObj = new Chart(ctx, {
+                        type: 'line',
+                        data: { labels: labels, datasets: datasets },
+                        options: { 
+                            responsive: true, 
+                            maintainAspectRatio: false,
+                            interaction: { mode: 'index', intersect: false },
+                            plugins: { 
+                                legend: { position: 'top', labels: { usePointStyle: true, boxWidth: 8, font: { size: 10 } } }, 
+                                datalabels: { display: false },
+                                tooltip: { backgroundColor: 'rgba(15, 23, 42, 0.9)' }
+                            },
+                            scales: { 
+                                y: { title: { display: true, text: 'Magnitud', font: { size: 10 } }, position: 'left' },
+                                ...(nominals.length > 0 && { y1: { type: 'linear', position: 'right', title: { display: true, text: 'Variación', font: { size: 10 } }, grid: { drawOnChartArea: false } } })
+                            }
+                        }
+                    });
+                } else {
+                    tablaContainer.innerHTML = '<p class="text-xs text-slate-500 italic p-3 bg-slate-50 rounded-lg border border-slate-200">El registro no contiene valores numéricos estructurados para generar tabla dinámica.</p>';
+                    chartWrapper.style.display = 'none';
+                }
             } else {
-                chartContainer.style.display = 'none';
+                valoresContainer.style.display = 'none';
             }
 
             // Procesar Fotos desde Google Drive
