@@ -337,7 +337,6 @@
         </div>
     </div>
 
-    <!-- Scripts unificados con correcciones -->
     <script>
         Chart.register(ChartDataLabels);
 
@@ -397,7 +396,6 @@
 
         function parsearFechaMantenimiento(fechaStr) {
             if (!fechaStr || fechaStr === 'N/A') return null;
-            // Limpiamos la hora en caso de que venga como "12/05/2026 14:30:00"
             let soloFecha = fechaStr.split(' ')[0];
             let parts = soloFecha.split(/[-/]/);
             
@@ -415,37 +413,64 @@
             datosDetalleOrdenes = [];
             const clientesSet = new Set();
             
+            if(data.length === 0) return;
+            
+            // HERRAMIENTA DE BÚSQUEDA DINÁMICA DE COLUMNAS
+            const llaves = Object.keys(data[0]);
+            console.log("=== DIAGNÓSTICO DE COLUMNAS ===");
+            console.log("Los encabezados reales leídos de tu Excel son:", llaves);
+            
+            const findCol = (palabras) => llaves.find(llave => palabras.some(p => llave.includes(p)));
+            
+            // Busca las columnas mediante fragmentos de palabras (súper flexible)
+            const cMes = findCol(['mes']);
+            const cID = findCol(['id unico', 'idunico', 'submission id', 'folio', 'orden']);
+            const cIng = findCol(['ingeniero', 'tecnico', 'encargado']);
+            const cEq = findCol(['equipo']);
+            const cTipo = findCol(['tipo de servicio', 'servicio', 'mantenimiento']);
+            const cCli = findCol(['unidad', 'cliente', 'hospital']);
+            const cMarca = findCol(['marca']);
+            const cMod = findCol(['modelo']);
+            const cSer = findCol(['serie', 's/n']);
+            const cInv = findCol(['inventario']);
+            const cArea = findCol(['area', 'servicio:', 'departamento', 'ubicacion']);
+            const cFecha = findCol(['fecha', 'marca temporal', 'timestamp', 'ejecucion']);
+            
+            // Datos de la unidad
+            const cDir = findCol(['direccion', 'domicilio', 'calle']);
+            const cTel = findCol(['telefono', 'tel', 'celular']);
+            const cCor = findCol(['correo', 'email']);
+            
+            const cEst = findCol(['estatus', 'seguimiento']);
+            const cObs = findCol(['observacion', 'detalle', 'falla']);
+
+            console.log("Asignaciones automáticas detectadas:");
+            console.log("Serie:", cSer, "| Inventario:", cInv, "| Área:", cArea, "| Fecha:", cFecha);
+
             data.forEach(row => {
                 let obj = {};
                 
-                // Datos Operativos Generales
-                obj['Mes'] = (row['mes'] || 'sin mes').toLowerCase().trim();
-                obj['ID'] = row['id unico'] || row['submission id'] || row['idunico'] || 'S/N';
-                obj['Ingeniero'] = row['ingeniero de servicio'] || row['ingeniero'] || row['tecnico'] || 'Sin Asignar';
-                obj['Equipo'] = row['equipo:'] || row['equipo'] || 'Sin Equipo';
-                obj['Tipo de Servicio'] = row['tipo de servicio o mantenimiento'] || row['tipo de servicio'] || '';
-                obj['Cliente'] = row['unidad:'] || row['unidad'] || row['cliente'] || row['hospital'] || 'Sin Cliente';
-                obj['Marca'] = row['marca:'] || row['marca'] || 'Sin Marca';
+                obj['Mes'] = cMes ? (row[cMes] || 'sin mes').toLowerCase().trim() : 'sin mes';
+                obj['ID'] = cID ? (row[cID] || 'S/N') : 'S/N';
+                obj['Ingeniero'] = cIng ? (row[cIng] || 'Sin Asignar') : 'Sin Asignar';
+                obj['Equipo'] = cEq ? (row[cEq] || 'Sin Equipo') : 'Sin Equipo';
+                obj['Tipo de Servicio'] = cTipo ? (row[cTipo] || '') : '';
+                obj['Cliente'] = cCli ? (row[cCli] || 'Sin Cliente') : 'Sin Cliente';
+                obj['Marca'] = cMarca ? (row[cMarca] || 'Sin Marca') : 'Sin Marca';
+                obj['Modelo'] = cMod ? (row[cMod] || 'N/A') : 'N/A';
+                obj['Serie'] = cSer ? (row[cSer] || 'N/A') : 'N/A';
+                obj['Inventario'] = cInv ? (row[cInv] || 'N/A') : 'N/A';
+                obj['Area'] = cArea ? (row[cArea] || 'N/A') : 'N/A';
+                obj['FechaEjecucion'] = cFecha ? (row[cFecha] || 'N/A') : 'N/A';
                 
-                // MAPEO AMPLIADO: Información de Equipos
-                obj['Modelo'] = row['modelo:'] || row['modelo'] || 'N/A';
-                obj['Serie'] = row['numero de serie:'] || row['numero de serie'] || row['no. serie'] || row['no. de serie'] || row['serie'] || row['s/n'] || 'N/A';
-                obj['Inventario'] = row['numero de inventario:'] || row['numero de inventario'] || row['no. inventario'] || row['no. de inventario'] || row['inventario'] || 'N/A';
-                obj['Area'] = row['area o servicio:'] || row['area / servicio'] || row['area o servicio'] || row['area'] || row['departamento'] || row['ubicacion'] || 'N/A';
-                
-                // MAPEO AMPLIADO: Fechas
-                obj['FechaEjecucion'] = row['fecha de servicio'] || row['fecha'] || row['marca temporal'] || row['timestamp'] || row['fecha de ejecucion'] || 'N/A';
-                
-                // MAPEO AMPLIADO: Datos de Contacto de la Unidad
-                obj['Direccion'] = row['direccion'] || row['domicilio'] || row['direccion del cliente'] || 'Dirección no registrada';
-                obj['Telefono'] = row['telefono'] || row['tel'] || row['contacto'] || 'Teléfono no registrado';
-                obj['Correo'] = row['correo'] || row['email'] || row['correo electronico'] || 'contacto@hospital.com';
+                obj['Direccion'] = cDir ? (row[cDir] || 'Dirección no registrada') : 'Dirección no registrada';
+                obj['Telefono'] = cTel ? (row[cTel] || 'Teléfono no registrado') : 'Teléfono no registrado';
+                obj['Correo'] = cCor ? (row[cCor] || 'contacto@hospital.com') : 'contacto@hospital.com';
 
                 let tipoLower = obj['Tipo de Servicio'].toLowerCase();
                 obj['esPrev'] = tipoLower.includes('preventivo') || tipoLower.includes('calibracion');
                 obj['esCorr'] = tipoLower.includes('correctivo') || tipoLower.includes('asistencia');
 
-                // Procesamiento de Fechas
                 let dateObj = parsearFechaMantenimiento(obj['FechaEjecucion']);
                 if (dateObj) {
                     obj['FechaEjecucionStr'] = dateObj.toLocaleDateString('es-MX');
@@ -454,12 +479,12 @@
                     obj['ProximoMantStr'] = nextDate.toLocaleDateString('es-MX');
                     obj['MesProximoMant'] = nextDate.getMonth() + 1; 
                 } else {
-                    obj['FechaEjecucionStr'] = obj['FechaEjecucion'];
+                    obj['FechaEjecucionStr'] = obj['FechaEjecucion'] !== 'N/A' && obj['FechaEjecucion'] !== '' ? obj['FechaEjecucion'] : 'Sin Fecha Registrada';
                     obj['ProximoMantStr'] = 'Sin Fecha Válida';
                     obj['MesProximoMant'] = -1;
                 }
 
-                let estatusRaw = (row['estatus de seguimiento'] || row['escribauna'] || '').toUpperCase().trim();
+                let estatusRaw = cEst ? (row[cEst] || '').toUpperCase().trim() : '';
                 let estatusLimpio = estatusRaw.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
                 
                 obj['estatus_seguimiento_limpio'] = estatusLimpio;
@@ -468,13 +493,13 @@
                 
                 if (estatusLimpio.includes('REQUIERE COTIZACION')) {
                     obj['oportunidad'] = true;
-                    let nota = (row['observaciones:'] || row['observaciones'] || row['detalle de funcionalidad:'] || '').trim();
+                    let nota = cObs ? (row[cObs] || '').trim() : '';
                     obj['motivo_venta'] = nota !== '' ? nota : estatusRaw;
                 }
 
-                if (obj['ID'] !== 'S/N') {
+                if (obj['ID'] !== 'S/N' && obj['ID'] !== '') {
                     datosDetalleOrdenes.push(obj);
-                    if (obj['Cliente'] !== 'Sin Cliente') {
+                    if (obj['Cliente'] !== 'Sin Cliente' && obj['Cliente'] !== '') {
                         clientesSet.add(obj['Cliente']);
                     }
                 }
@@ -534,11 +559,12 @@
             
             const dataCliente = datosDetalleOrdenes.filter(d => d.Cliente === clienteNombre);
             
-            // INYECTAR DATOS DE LA UNIDAD HOSPITALARIA
             if(dataCliente.length > 0) {
-                document.getElementById('clienteDireccion').innerText = dataCliente[0].Direccion;
-                document.getElementById('clienteTelefono').innerText = dataCliente[0].Telefono;
-                document.getElementById('clienteCorreo').innerText = dataCliente[0].Correo;
+                // Tomamos el primer registro válido que tenga información
+                let regConInfo = dataCliente.find(d => d.Direccion !== 'Dirección no registrada') || dataCliente[0];
+                document.getElementById('clienteDireccion').innerText = regConInfo.Direccion;
+                document.getElementById('clienteTelefono').innerText = regConInfo.Telefono;
+                document.getElementById('clienteCorreo').innerText = regConInfo.Correo;
             }
             
             document.getElementById('clienteTotalServicios').innerText = dataCliente.length;
