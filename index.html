@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard Operativo Completo</title>
+    <title>Dashboard Operativo y Módulo de Clientes</title>
     
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
@@ -25,164 +25,292 @@
         }
     </script>
     <style>
-        body { font-family: 'Inter', sans-serif; }
+        body { font-family: 'Inter', sans-serif; overflow: hidden; }
         .fade-in { animation: fadeIn 0.4s ease-out forwards; opacity: 0; }
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(15px); }
             to { opacity: 1; transform: translateY(0); }
         }
         .chart-wrapper { position: relative; height: 300px; width: 100%; }
-        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: #f1f5f9; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .sidebar-scroll::-webkit-scrollbar-thumb { background: #475569; }
+        .tab-active { border-bottom: 2px solid #0d9488; color: #0d9488; font-weight: 600; }
+        .tab-inactive { color: #64748b; font-weight: 500; }
     </style>
 </head>
-<body class="bg-slate-50 text-slate-800 min-h-screen pb-12">
+<body class="bg-slate-50 text-slate-800 h-screen flex">
 
-    <div id="loadingBanner" class="max-w-7xl mx-auto px-4 mt-6 fade-in">
-        <div class="bg-blue-50 border-l-4 border-blue-500 text-blue-700 p-4 rounded-xl shadow-sm flex items-center">
-            <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-            <p class="font-bold">Conectando con Google Sheets y descargando datos...</p>
+    <!-- Barra Lateral -->
+    <aside class="w-64 bg-slate-900 text-slate-300 flex flex-col h-full shadow-xl z-20 shrink-0 transition-all duration-300">
+        <div class="p-6 bg-slate-950/50">
+            <h2 class="text-xl font-bold text-white tracking-tight">Menú Principal</h2>
         </div>
-    </div>
-
-    <div id="errorBanner" class="hidden max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 fade-in">
-        <div class="bg-red-50 border-l-4 border-red-500 text-red-700 p-4 rounded-xl shadow-sm">
-            <div class="flex items-center">
-                <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                <p class="font-bold text-lg">Error al cargar información</p>
+        <nav class="flex-1 overflow-y-auto sidebar-scroll py-4" id="sidebarMenu">
+            <button onclick="mostrarDashboard()" class="w-full text-left px-6 py-3 hover:bg-slate-800 hover:text-white transition-colors border-l-4 border-brand-500 text-white font-medium bg-slate-800/50" id="btnDashboard">
+                <div class="flex items-center gap-3">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+                    Dashboard General
+                </div>
+            </button>
+            <div class="px-6 mt-6 mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Unidades Hospitalarias</div>
+            <div id="listaClientesSidebar" class="flex flex-col">
+                <!-- Se inyecta con JS -->
             </div>
-            <p id="errorTexto" class="mt-2 font-medium">Revisa la consola (F12) para más detalles.</p>
-        </div>
-    </div>
+        </nav>
+    </aside>
 
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" id="dashboardContent" style="display: none;">
+    <!-- Contenedor Principal -->
+    <main class="flex-1 overflow-y-auto relative h-full">
         
-        <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 bg-white p-6 rounded-2xl shadow-sm border border-slate-100 fade-in">
-            <div class="mb-4 lg:mb-0">
-                <h1 class="text-3xl font-bold text-slate-900 tracking-tight">Métricas Operativas</h1>
-                <p class="text-sm text-slate-500 mt-1">Análisis de rendimiento, cargas de trabajo y oportunidades</p>
+        <!-- Banners de Carga y Error -->
+        <div id="loadingBanner" class="max-w-7xl mx-auto px-4 mt-6 fade-in">
+            <div class="bg-blue-50 border-l-4 border-blue-500 text-blue-700 p-4 rounded-xl shadow-sm flex items-center">
+                <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                <p class="font-bold">Conectando con Google Sheets y procesando datos...</p>
             </div>
-            
-            <div class="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
-                <div class="relative w-full sm:w-56">
-                    <select id="monthFilter" class="appearance-none bg-slate-50 border border-slate-200 text-slate-900 text-sm font-medium rounded-xl focus:ring-brand-500 focus:border-brand-500 block w-full p-3 pr-10 cursor-pointer outline-none">
-                        <option value="todos">Todos los meses (Anual)</option>
-                        <option value="enero">Enero</option>
-                        <option value="febrero">Febrero</option>
-                        <option value="marzo">Marzo</option>
-                        <option value="abril">Abril</option>
-                        <option value="mayo">Mayo</option>
-                        <option value="junio">Junio</option>
-                        <option value="julio">Julio</option>
-                        <option value="agosto">Agosto</option>
-                        <option value="septiembre">Septiembre</option>
-                        <option value="octubre">Octubre</option>
-                        <option value="noviembre">Noviembre</option>
-                        <option value="diciembre">Diciembre</option>
-                    </select>
-                    <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-500">
-                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+        </div>
+
+        <div id="errorBanner" class="hidden max-w-7xl mx-auto px-4 mt-6 fade-in">
+            <div class="bg-red-50 border-l-4 border-red-500 text-red-700 p-4 rounded-xl shadow-sm">
+                <div class="flex items-center">
+                    <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <p class="font-bold text-lg">Error al cargar información</p>
+                </div>
+                <p id="errorTexto" class="mt-2 font-medium">Revisa la consola para más detalles.</p>
+            </div>
+        </div>
+
+        <!-- ================= VISTA DASHBOARD GENERAL ================= -->
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-12" id="dashboardContent" style="display: none;">
+            <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 bg-white p-6 rounded-2xl shadow-sm border border-slate-100 fade-in">
+                <div class="mb-4 lg:mb-0">
+                    <h1 class="text-3xl font-bold text-slate-900 tracking-tight">Métricas Operativas</h1>
+                    <p class="text-sm text-slate-500 mt-1">Análisis de rendimiento y cargas de trabajo global</p>
+                </div>
+                
+                <div class="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
+                    <div class="relative w-full sm:w-56">
+                        <select id="monthFilter" class="appearance-none bg-slate-50 border border-slate-200 text-slate-900 text-sm font-medium rounded-xl focus:ring-brand-500 focus:border-brand-500 block w-full p-3 pr-10 cursor-pointer outline-none">
+                            <option value="todos">Todos los meses (Anual)</option>
+                            <option value="enero">Enero</option>
+                            <option value="febrero">Febrero</option>
+                            <option value="marzo">Marzo</option>
+                            <option value="abril">Abril</option>
+                            <option value="mayo">Mayo</option>
+                            <option value="junio">Junio</option>
+                            <option value="julio">Julio</option>
+                            <option value="agosto">Agosto</option>
+                            <option value="septiembre">Septiembre</option>
+                            <option value="octubre">Octubre</option>
+                            <option value="noviembre">Noviembre</option>
+                            <option value="diciembre">Diciembre</option>
+                        </select>
+                        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-500">
+                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                        </div>
+                    </div>
+                    <button id="btnAnual" class="bg-slate-900 hover:bg-slate-800 text-white font-semibold py-3 px-6 rounded-xl shadow-sm transition-all duration-200 flex items-center justify-center gap-2">
+                        Ver Todo el Año
+                    </button>
+                </div>
+            </div>
+
+            <!-- KPIs -->
+            <h2 class="text-lg font-bold text-slate-800 mb-4 px-2">Indicadores Clave de Rendimiento (KPIs)</h2>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                <!-- Se mantienen los mismos KPI del Dashboard Original -->
+                <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between">
+                    <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-2">Ratio Preventivo</div>
+                    <div class="text-3xl font-bold text-kpi-blue" id="kpi-prev">0%</div>
+                </div>
+                <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between">
+                    <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-2">Ratio Correctivo</div>
+                    <div class="text-3xl font-bold text-kpi-orange" id="kpi-corr">0%</div>
+                </div>
+                <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between">
+                    <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-2">MTTR Promedio</div>
+                    <div class="flex items-end gap-2">
+                        <div class="text-3xl font-bold text-slate-800" id="kpi-mttr">0</div>
+                        <span class="text-sm text-slate-500 font-medium mb-1">min</span>
                     </div>
                 </div>
-                <button id="btnAnual" class="bg-slate-900 hover:bg-slate-800 text-white font-semibold py-3 px-6 rounded-xl shadow-sm transition-all duration-200 flex items-center justify-center gap-2">
-                    Ver Todo el Año
-                </button>
+                <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between">
+                    <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-2">Tasa de Entrega</div>
+                    <div class="text-3xl font-bold text-kpi-green" id="kpi-entrega">0%</div>
+                </div>
+                <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between">
+                    <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-2">Tasa Refacciones</div>
+                    <div class="text-3xl font-bold text-slate-800" id="kpi-refacciones">0%</div>
+                </div>
+                <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between">
+                    <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-2">Fallas Críticas</div>
+                    <div class="text-3xl font-bold text-kpi-red" id="kpi-fallas">0%</div>
+                </div>
+                <div id="card-ventas" class="bg-white rounded-2xl p-5 shadow-sm border border-brand-100 flex flex-col justify-between md:col-span-2 cursor-pointer hover:shadow-md hover:border-brand-400 transition-all group">
+                    <div class="flex justify-between items-start mb-2">
+                        <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider group-hover:text-brand-600 transition-colors">Oportunidades de Venta (Clic para Detalle)</div>
+                    </div>
+                    <div class="flex items-end gap-2">
+                        <div class="text-3xl font-bold text-kpi-purple" id="kpi-ventas">0</div>
+                        <span class="text-sm text-slate-500 font-medium mb-1">cotizaciones detectadas</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Estatus -->
+            <h2 class="text-lg font-bold text-slate-800 mb-4 px-2">Estatus de Equipos Atendidos</h2>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
+                <div class="bg-slate-800 rounded-2xl p-5 shadow-sm text-white flex flex-col justify-between">
+                    <div class="text-slate-300 text-xs font-semibold uppercase tracking-wider mb-2">Equipos en Garantía</div>
+                    <div class="text-3xl font-bold" id="ind-garantia">0</div>
+                </div>
+                <div class="bg-slate-800 rounded-2xl p-5 shadow-sm text-white flex flex-col justify-between">
+                    <div class="text-slate-300 text-xs font-semibold uppercase tracking-wider mb-2">Equipos en Contrato</div>
+                    <div class="text-3xl font-bold" id="ind-contrato">0</div>
+                </div>
+                <div class="bg-slate-100 rounded-2xl p-5 shadow-sm border border-slate-200 flex flex-col justify-between">
+                    <div class="text-slate-600 text-xs font-semibold uppercase tracking-wider mb-2">Fuera de Servicio</div>
+                    <div class="text-3xl font-bold text-slate-800" id="ind-fuera">0</div>
+                </div>
+                <div class="bg-slate-100 rounded-2xl p-5 shadow-sm border border-slate-200 flex flex-col justify-between">
+                    <div class="text-slate-600 text-xs font-semibold uppercase tracking-wider mb-2">A Prueba (8 Días)</div>
+                    <div class="text-3xl font-bold text-slate-800" id="ind-prueba">0</div>
+                </div>
+            </div>
+
+            <!-- Gráficas -->
+            <h2 class="text-lg font-bold text-slate-800 mb-4 px-2">Análisis Dinámico</h2>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
+                <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100"><h3 class="text-base font-bold text-slate-800 mb-4">Carga de Trabajo</h3><div class="chart-wrapper"><canvas id="chartCargaTrabajo"></canvas></div></div>
+                <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100"><h3 class="text-base font-bold text-slate-800 mb-4">Tipos de Servicio</h3><div class="chart-wrapper"><canvas id="chartTipos"></canvas></div></div>
+                <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100"><h3 class="text-base font-bold text-slate-800 mb-4">Principales Clientes</h3><div class="chart-wrapper"><canvas id="chartClientes"></canvas></div></div>
+                <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100"><h3 class="text-base font-bold text-slate-800 mb-4">Principales Marcas</h3><div class="chart-wrapper"><canvas id="chartMarcas"></canvas></div></div>
             </div>
         </div>
 
-        <h2 class="text-lg font-bold text-slate-800 mb-4 px-2">Indicadores Clave de Rendimiento (KPIs)</h2>
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <!-- ================= VISTA: DETALLE DE CLIENTE ================= -->
+        <div id="clienteContent" class="hidden max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-12 fade-in">
             
-            <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between">
-                <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-2">Ratio Preventivo</div>
-                <div class="text-3xl font-bold text-kpi-blue" id="kpi-prev">0%</div>
-            </div>
-
-            <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between">
-                <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-2">Ratio Correctivo</div>
-                <div class="text-3xl font-bold text-kpi-orange" id="kpi-corr">0%</div>
-            </div>
-
-            <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between">
-                <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-2">MTTR Promedio</div>
-                <div class="flex items-end gap-2">
-                    <div class="text-3xl font-bold text-slate-800" id="kpi-mttr">0</div>
-                    <span class="text-sm text-slate-500 font-medium mb-1">min</span>
+            <!-- Cabecera de Información de Cliente -->
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                <div>
+                    <h1 class="text-3xl font-bold text-slate-900 tracking-tight" id="clienteTitulo">Nombre Hospital</h1>
+                    <div class="mt-3 flex flex-col sm:flex-row gap-4 text-sm text-slate-600">
+                        <div class="flex items-center gap-1">
+                            <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                            <span id="clienteDireccion">Dirección no registrada</span>
+                        </div>
+                        <div class="flex items-center gap-1">
+                            <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path></svg>
+                            <span id="clienteTelefono">Teléfono no registrado</span>
+                        </div>
+                        <div class="flex items-center gap-1">
+                            <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                            <span id="clienteCorreo">contacto@hospital.com</span>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between">
-                <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-2">Tasa de Entrega</div>
-                <div class="text-3xl font-bold text-kpi-green" id="kpi-entrega">0%</div>
-            </div>
-
-            <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between">
-                <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-2">Tasa Refacciones</div>
-                <div class="text-3xl font-bold text-slate-800" id="kpi-refacciones">0%</div>
-            </div>
-
-            <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between">
-                <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-2">Fallas Críticas</div>
-                <div class="text-3xl font-bold text-kpi-red" id="kpi-fallas">0%</div>
-            </div>
-
-            <div id="card-ventas" class="bg-white rounded-2xl p-5 shadow-sm border border-brand-100 flex flex-col justify-between md:col-span-2 cursor-pointer hover:shadow-md hover:border-brand-400 transition-all group">
-                <div class="flex justify-between items-start mb-2">
-                    <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider group-hover:text-brand-600 transition-colors">Oportunidades de Venta (Clic para Detalle)</div>
-                    <svg class="w-4 h-4 text-slate-400 group-hover:text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+            <!-- KPIs del Cliente -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-100">
+                    <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-1">Total Servicios Ejecutados</div>
+                    <div class="text-3xl font-bold text-slate-800" id="clienteTotalServicios">0</div>
                 </div>
-                <div class="flex items-end gap-2">
-                    <div class="text-3xl font-bold text-kpi-purple" id="kpi-ventas">0</div>
-                    <span class="text-sm text-slate-500 font-medium mb-1">cotizaciones detectadas</span>
+                <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-100">
+                    <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-1">Ingeniero Principal</div>
+                    <div class="text-xl font-bold text-brand-600 mt-1 truncate" id="clienteIngeniero">N/A</div>
+                </div>
+                <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-100">
+                    <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-1">Tipo de Servicio Frecuente</div>
+                    <div class="text-xl font-bold text-slate-800 mt-1 truncate" id="clienteTipoServicio">N/A</div>
                 </div>
             </div>
+
+            <!-- Pestañas de Mantenimiento -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                <div class="border-b border-slate-200 bg-slate-50 px-6 flex gap-6">
+                    <button id="tabPrev" onclick="cambiarPestana('prev')" class="py-4 px-2 text-sm focus:outline-none tab-active transition-colors">
+                        Mantenimiento Preventivo / Calibración
+                    </button>
+                    <button id="tabCorr" onclick="cambiarPestana('corr')" class="py-4 px-2 text-sm focus:outline-none tab-inactive transition-colors hover:text-slate-800">
+                        Mantenimiento Correctivo / Asistencia
+                    </button>
+                </div>
+
+                <div class="p-6">
+                    <!-- Contenido Pestaña Preventivos -->
+                    <div id="contentPrev">
+                        <div class="flex flex-col sm:flex-row gap-4 mb-6 justify-between items-center">
+                            <input type="text" id="filtroTextoPrev" placeholder="Buscar por equipo, marca, serie..." class="w-full sm:w-1/2 p-2.5 border border-slate-300 rounded-lg text-sm focus:ring-brand-500 outline-none">
+                            <div class="flex items-center gap-2 w-full sm:w-auto">
+                                <label class="text-xs font-semibold text-slate-500 uppercase">Mes Próx. Mant:</label>
+                                <select id="filtroMesPrev" class="p-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-brand-500 outline-none">
+                                    <option value="todos">Todos</option>
+                                    <option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option>
+                                    <option value="4">Abril</option><option value="5">Mayo</option><option value="6">Junio</option>
+                                    <option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option>
+                                    <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="overflow-x-auto rounded-lg border border-slate-200">
+                            <table class="min-w-full divide-y divide-slate-200">
+                                <thead class="bg-slate-50">
+                                    <tr>
+                                        <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Equipo / Marca / Modelo</th>
+                                        <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">No. Serie / Inventario</th>
+                                        <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Área</th>
+                                        <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Fecha Ejecución</th>
+                                        <th class="px-4 py-3 text-left text-xs font-semibold text-brand-600 uppercase">Próx. Mantenimiento</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tablaPreventivos" class="divide-y divide-slate-100 text-sm bg-white">
+                                    <!-- Inyectado por JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Contenido Pestaña Correctivos -->
+                    <div id="contentCorr" class="hidden">
+                        <div class="flex flex-col sm:flex-row gap-4 mb-6 justify-end items-center">
+                            <div class="flex items-center gap-2 w-full sm:w-auto">
+                                <label class="text-xs font-semibold text-slate-500 uppercase">Mes de Ejecución:</label>
+                                <select id="filtroMesCorr" class="p-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-brand-500 outline-none">
+                                    <option value="todos">Todos los meses</option>
+                                    <!-- Opciones generadas en JS según la data -->
+                                </select>
+                            </div>
+                        </div>
+                        <div class="overflow-x-auto rounded-lg border border-slate-200">
+                            <table class="min-w-full divide-y divide-slate-200">
+                                <thead class="bg-slate-50">
+                                    <tr>
+                                        <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Orden (ID)</th>
+                                        <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Equipo</th>
+                                        <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Marca / Modelo</th>
+                                        <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">No. Serie</th>
+                                        <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Fecha Ejecución</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tablaCorrectivos" class="divide-y divide-slate-100 text-sm bg-white">
+                                    <!-- Inyectado por JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
         </div>
 
-        <h2 class="text-lg font-bold text-slate-800 mb-4 px-2">Estatus de Equipos Atendidos</h2>
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
-            <div class="bg-slate-800 rounded-2xl p-5 shadow-sm text-white flex flex-col justify-between">
-                <div class="text-slate-300 text-xs font-semibold uppercase tracking-wider mb-2">Equipos en Garantía</div>
-                <div class="text-3xl font-bold" id="ind-garantia">0</div>
-            </div>
-            <div class="bg-slate-800 rounded-2xl p-5 shadow-sm text-white flex flex-col justify-between">
-                <div class="text-slate-300 text-xs font-semibold uppercase tracking-wider mb-2">Equipos en Contrato</div>
-                <div class="text-3xl font-bold" id="ind-contrato">0</div>
-            </div>
-            <div class="bg-slate-100 rounded-2xl p-5 shadow-sm border border-slate-200 flex flex-col justify-between">
-                <div class="text-slate-600 text-xs font-semibold uppercase tracking-wider mb-2">Fuera de Servicio</div>
-                <div class="text-3xl font-bold text-slate-800" id="ind-fuera">0</div>
-            </div>
-            <div class="bg-slate-100 rounded-2xl p-5 shadow-sm border border-slate-200 flex flex-col justify-between">
-                <div class="text-slate-600 text-xs font-semibold uppercase tracking-wider mb-2">A Prueba (8 Días)</div>
-                <div class="text-3xl font-bold text-slate-800" id="ind-prueba">0</div>
-            </div>
-        </div>
+    </main>
 
-        <h2 class="text-lg font-bold text-slate-800 mb-4 px-2">Análisis Dinámico (Tablas Dinámicas)</h2>
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
-            <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-                <h3 class="text-base font-bold text-slate-800 mb-4">Carga de Trabajo (Por Ingeniero)</h3>
-                <div class="chart-wrapper"><canvas id="chartCargaTrabajo"></canvas></div>
-            </div>
-
-            <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-                <h3 class="text-base font-bold text-slate-800 mb-4">Distribución por Tipo de Servicio</h3>
-                <div class="chart-wrapper"><canvas id="chartTipos"></canvas></div>
-            </div>
-
-            <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-                <h3 class="text-base font-bold text-slate-800 mb-4">Principales Clientes</h3>
-                <div class="chart-wrapper"><canvas id="chartClientes"></canvas></div>
-            </div>
-
-            <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-                <h3 class="text-base font-bold text-slate-800 mb-4">Principales Marcas</h3>
-                <div class="chart-wrapper"><canvas id="chartMarcas"></canvas></div>
-            </div>
-        </div>
-    </div>
-
+    <!-- Modal Ventas (Mantenido del original) -->
     <div id="modalOportunidades" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden flex items-center justify-center z-50 fade-in">
         <div class="bg-white rounded-2xl w-11/12 max-w-5xl max-h-[85vh] overflow-hidden shadow-2xl flex flex-col">
             <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
@@ -203,14 +331,8 @@
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Motivo</th>
                             </tr>
                         </thead>
-                        <tbody id="listaOportunidades" class="divide-y divide-slate-100 text-sm text-slate-700 bg-white">
-                            <!-- Datos Inyectados con JS -->
-                        </tbody>
+                        <tbody id="listaOportunidades" class="divide-y divide-slate-100 text-sm text-slate-700 bg-white"></tbody>
                     </table>
-                </div>
-                <div id="noOportunidades" class="text-center py-10 text-slate-500 hidden flex flex-col items-center">
-                    <svg class="w-12 h-12 text-slate-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path></svg>
-                    <p>No hay oportunidades de venta detectadas en este periodo.</p>
                 </div>
             </div>
         </div>
@@ -221,7 +343,11 @@
 
         let charts = { carga: null, tipos: null, clientes: null, marcas: null };
         let datosAgrupadosPorMes = []; 
-        let datosDetalleOrdenes = [];  
+        let datosDetalleOrdenes = [];
+        let clientesUnicos = [];
+        let clienteActual = '';
+        let dataPreventivos = [];
+        let dataCorrectivos = [];
 
         const palette = ['#14b8a6', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444', '#64748b', '#0ea5e9'];
 
@@ -254,8 +380,8 @@
 
                 setTimeout(() => {
                     document.getElementById('loadingBanner').style.display = 'none';
-                    document.getElementById('dashboardContent').style.display = 'block';
-                    renderizarDashboard('todos'); 
+                    generarSidebarClientes();
+                    mostrarDashboard(); 
                 }, 500);
 
             } catch (error) {
@@ -269,8 +395,24 @@
             document.getElementById('errorTexto').innerText = mensaje;
         }
 
+        function parsearFechaMantenimiento(fechaStr) {
+            // Intenta extraer fecha si viene en un formato conocido o devuelve null
+            if (!fechaStr) return null;
+            let parts = fechaStr.split(/[-/]/);
+            if (parts.length >= 3) {
+                // asume DD/MM/YYYY o YYYY/MM/DD
+                let y = parts[2].length === 4 ? parts[2] : parts[0];
+                let m = parts[1];
+                let d = parts[0].length <= 2 ? parts[0] : parts[2];
+                return new Date(`${y}-${m}-${d}T12:00:00Z`);
+            }
+            let ts = Date.parse(fechaStr);
+            return isNaN(ts) ? null : new Date(ts);
+        }
+
         function procesarDatosCorpus(data) {
             datosDetalleOrdenes = [];
+            const clientesSet = new Set();
             
             data.forEach(row => {
                 let obj = {};
@@ -282,16 +424,38 @@
                 obj['Tipo de Servicio'] = row['tipo de servicio o mantenimiento'] || '';
                 obj['Cliente'] = row['unidad:'] || row['unidad'] || row['cliente'] || 'Sin Cliente';
                 obj['Marca'] = row['marca:'] || row['marca'] || 'Sin Marca';
+                
+                // Nuevos campos para detalle cliente
+                obj['Modelo'] = row['modelo:'] || row['modelo'] || 'N/A';
+                obj['Serie'] = row['numero de serie:'] || row['serie'] || 'N/A';
+                obj['Inventario'] = row['numero de inventario:'] || row['inventario'] || 'N/A';
+                obj['Area'] = row['area o servicio:'] || row['area'] || 'N/A';
+                obj['FechaEjecucion'] = row['fecha de servicio'] || row['fecha'] || row['timestamp'] || 'N/A';
+                
+                let tipoLower = obj['Tipo de Servicio'].toLowerCase();
+                obj['esPrev'] = tipoLower.includes('preventivo') || tipoLower.includes('calibracion');
+                obj['esCorr'] = tipoLower.includes('correctivo') || tipoLower.includes('asistencia');
+
+                let dateObj = parsearFechaMantenimiento(obj['FechaEjecucion']);
+                if (dateObj) {
+                    obj['FechaEjecucionStr'] = dateObj.toLocaleDateString('es-MX');
+                    let nextDate = new Date(dateObj);
+                    nextDate.setMonth(nextDate.getMonth() + 6);
+                    obj['ProximoMantStr'] = nextDate.toLocaleDateString('es-MX');
+                    obj['MesProximoMant'] = nextDate.getMonth() + 1; // 1-12
+                } else {
+                    obj['FechaEjecucionStr'] = obj['FechaEjecucion'];
+                    obj['ProximoMantStr'] = 'Sin Fecha Válida';
+                    obj['MesProximoMant'] = -1;
+                }
 
                 let estatusRaw = (row['estatus de seguimiento'] || row['escribauna'] || '').toUpperCase().trim();
                 let estatusLimpio = estatusRaw.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
                 
                 obj['estatus_seguimiento_limpio'] = estatusLimpio;
-
                 obj['oportunidad'] = false;
                 obj['motivo_venta'] = '';
                 
-                // Filtro estricto: Solo si dice "REQUIERE COTIZACION"
                 if (estatusLimpio.includes('REQUIERE COTIZACION')) {
                     obj['oportunidad'] = true;
                     let nota = (row['observaciones:'] || row['observaciones'] || row['detalle de funcionalidad:'] || '').trim();
@@ -300,10 +464,204 @@
 
                 if (obj['ID'] !== 'S/N') {
                     datosDetalleOrdenes.push(obj);
+                    if (obj['Cliente'] !== 'Sin Cliente') {
+                        clientesSet.add(obj['Cliente']);
+                    }
                 }
+            });
+
+            clientesUnicos = Array.from(clientesSet).sort();
+        }
+
+        /*================ SIDEBAR & RUTAS ================*/
+        function generarSidebarClientes() {
+            const container = document.getElementById('listaClientesSidebar');
+            container.innerHTML = '';
+            clientesUnicos.forEach(cliente => {
+                const btn = document.createElement('button');
+                btn.className = "w-full text-left px-6 py-2.5 text-sm hover:bg-slate-800 hover:text-white transition-colors text-slate-400 truncate";
+                btn.innerText = cliente;
+                btn.onclick = () => mostrarVistaCliente(cliente);
+                container.appendChild(btn);
             });
         }
 
+        function resetSidebarStyles() {
+            document.getElementById('btnDashboard').classList.remove('border-l-4', 'border-brand-500', 'bg-slate-800/50', 'text-white');
+            document.getElementById('btnDashboard').classList.add('text-slate-400');
+            
+            const btns = document.getElementById('listaClientesSidebar').querySelectorAll('button');
+            btns.forEach(b => {
+                b.classList.remove('text-brand-400', 'font-bold', 'bg-slate-800/50', 'border-l-4', 'border-brand-500');
+                b.classList.add('text-slate-400');
+            });
+        }
+
+        function mostrarDashboard() {
+            resetSidebarStyles();
+            document.getElementById('btnDashboard').classList.add('border-l-4', 'border-brand-500', 'bg-slate-800/50', 'text-white');
+            document.getElementById('btnDashboard').classList.remove('text-slate-400');
+            
+            document.getElementById('clienteContent').style.display = 'none';
+            document.getElementById('dashboardContent').style.display = 'block';
+            renderizarDashboard('todos');
+        }
+
+        /*================ VISTA CLIENTE ================*/
+        function mostrarVistaCliente(clienteNombre) {
+            resetSidebarStyles();
+            const btns = document.getElementById('listaClientesSidebar').querySelectorAll('button');
+            btns.forEach(b => {
+                if(b.innerText === clienteNombre) {
+                    b.classList.add('text-brand-400', 'font-bold', 'bg-slate-800/50', 'border-l-4', 'border-brand-500');
+                    b.classList.remove('text-slate-400');
+                }
+            });
+
+            document.getElementById('dashboardContent').style.display = 'none';
+            document.getElementById('clienteContent').style.display = 'block';
+            clienteActual = clienteNombre;
+            
+            document.getElementById('clienteTitulo').innerText = clienteNombre;
+            
+            // Filtrar datos
+            const dataCliente = datosDetalleOrdenes.filter(d => d.Cliente === clienteNombre);
+            
+            // Calcular KPIs
+            document.getElementById('clienteTotalServicios').innerText = dataCliente.length;
+            
+            let ingenieros = {}, tipos = {};
+            dataCliente.forEach(d => {
+                if(d.Ingeniero) ingenieros[d.Ingeniero] = (ingenieros[d.Ingeniero] || 0) + 1;
+                if(d['Tipo de Servicio']) tipos[d['Tipo de Servicio']] = (tipos[d['Tipo de Servicio']] || 0) + 1;
+            });
+
+            let maxIng = Object.keys(ingenieros).reduce((a, b) => ingenieros[a] > ingenieros[b] ? a : b, 'N/A');
+            let maxTipo = Object.keys(tipos).reduce((a, b) => tipos[a] > tipos[b] ? a : b, 'N/A');
+            
+            document.getElementById('clienteIngeniero').innerText = maxIng;
+            document.getElementById('clienteTipoServicio').innerText = maxTipo;
+
+            // Separar data
+            dataPreventivos = dataCliente.filter(d => d.esPrev);
+            dataCorrectivos = dataCliente.filter(d => d.esCorr);
+
+            // Poblar dropdown de meses correctivos basado en la data
+            const mesCorrSelect = document.getElementById('filtroMesCorr');
+            mesCorrSelect.innerHTML = '<option value="todos">Todos los meses</option>';
+            const mesesUnicosCorr = [...new Set(dataCorrectivos.map(d => d.Mes))].filter(m => m && m !== 'sin mes');
+            mesesUnicosCorr.forEach(m => {
+                let opt = document.createElement('option');
+                opt.value = m; opt.innerText = m.charAt(0).toUpperCase() + m.slice(1);
+                mesCorrSelect.appendChild(opt);
+            });
+
+            // Limpiar filtros
+            document.getElementById('filtroTextoPrev').value = '';
+            document.getElementById('filtroMesPrev').value = 'todos';
+            document.getElementById('filtroMesCorr').value = 'todos';
+
+            renderTablaPreventivos();
+            renderTablaCorrectivos();
+            cambiarPestana('prev'); // Activar Preventivos por defecto
+        }
+
+        function cambiarPestana(tab) {
+            const tPrev = document.getElementById('tabPrev');
+            const tCorr = document.getElementById('tabCorr');
+            const cPrev = document.getElementById('contentPrev');
+            const cCorr = document.getElementById('contentCorr');
+
+            if(tab === 'prev') {
+                tPrev.className = "py-4 px-2 text-sm focus:outline-none tab-active transition-colors";
+                tCorr.className = "py-4 px-2 text-sm focus:outline-none tab-inactive transition-colors hover:text-slate-800";
+                cPrev.style.display = 'block';
+                cCorr.style.display = 'none';
+            } else {
+                tCorr.className = "py-4 px-2 text-sm focus:outline-none tab-active transition-colors";
+                tPrev.className = "py-4 px-2 text-sm focus:outline-none tab-inactive transition-colors hover:text-slate-800";
+                cCorr.style.display = 'block';
+                cPrev.style.display = 'none';
+            }
+        }
+
+        function renderTablaPreventivos() {
+            const tbody = document.getElementById('tablaPreventivos');
+            tbody.innerHTML = '';
+            
+            const textoBusqueda = document.getElementById('filtroTextoPrev').value.toLowerCase();
+            const mesPruebas = document.getElementById('filtroMesPrev').value;
+
+            let filtrados = dataPreventivos.filter(d => {
+                let coincideTexto = d.Equipo.toLowerCase().includes(textoBusqueda) || 
+                                    d.Marca.toLowerCase().includes(textoBusqueda) ||
+                                    d.Serie.toLowerCase().includes(textoBusqueda) ||
+                                    d.Modelo.toLowerCase().includes(textoBusqueda);
+                
+                let coincideMes = mesPruebas === 'todos' || d.MesProximoMant.toString() === mesPruebas;
+                
+                return coincideTexto && coincideMes;
+            });
+
+            if(filtrados.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-8 text-center text-slate-500">No hay mantenimientos preventivos que coincidan con la búsqueda.</td></tr>`;
+                return;
+            }
+
+            filtrados.forEach(d => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-50 transition-colors';
+                tr.innerHTML = `
+                    <td class="px-4 py-3">
+                        <div class="font-semibold text-slate-800">${d.Equipo}</div>
+                        <div class="text-xs text-slate-500">${d.Marca} / ${d.Modelo}</div>
+                    </td>
+                    <td class="px-4 py-3">
+                        <div class="text-slate-800">${d.Serie}</div>
+                        <div class="text-xs text-slate-500">Inv: ${d.Inventario}</div>
+                    </td>
+                    <td class="px-4 py-3 text-slate-600">${d.Area}</td>
+                    <td class="px-4 py-3 text-slate-600">${d.FechaEjecucionStr}</td>
+                    <td class="px-4 py-3 font-bold text-brand-600">${d.ProximoMantStr}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderTablaCorrectivos() {
+            const tbody = document.getElementById('tablaCorrectivos');
+            tbody.innerHTML = '';
+            
+            const mesCorr = document.getElementById('filtroMesCorr').value;
+
+            let filtrados = dataCorrectivos.filter(d => mesCorr === 'todos' || d.Mes === mesCorr);
+
+            if(filtrados.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-8 text-center text-slate-500">No hay mantenimientos correctivos en el periodo seleccionado.</td></tr>`;
+                return;
+            }
+
+            filtrados.forEach(d => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-50 transition-colors';
+                tr.innerHTML = `
+                    <td class="px-4 py-3 font-bold text-slate-700 whitespace-nowrap">${d.ID}</td>
+                    <td class="px-4 py-3 text-slate-800 font-medium">${d.Equipo}</td>
+                    <td class="px-4 py-3 text-slate-600">${d.Marca} / ${d.Modelo}</td>
+                    <td class="px-4 py-3 text-slate-600">${d.Serie}</td>
+                    <td class="px-4 py-3 text-slate-600">${d.FechaEjecucionStr}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Listeners para filtros de la vista Cliente
+        document.getElementById('filtroTextoPrev').addEventListener('input', renderTablaPreventivos);
+        document.getElementById('filtroMesPrev').addEventListener('change', renderTablaPreventivos);
+        document.getElementById('filtroMesCorr').addEventListener('change', renderTablaCorrectivos);
+
+
+        /*================ LÓGICA ORIGINAL DASHBOARD ================*/
         const parsePercent = (val) => {
             if (!val) return 0;
             if (typeof val === 'number') return val;
@@ -358,7 +716,6 @@
                 datosFiltradosCorpus = datosDetalleOrdenes.filter(item => item.Mes === filtroMes);
             }
 
-            // Sincronización perfecta de las Ventas calculadas de la tabla
             const conteoVentasReales = datosFiltradosCorpus.filter(d => d.oportunidad).length;
             if(document.getElementById('kpi-ventas')) document.getElementById('kpi-ventas').innerText = conteoVentasReales;
 
@@ -388,7 +745,34 @@
             if(document.getElementById('ind-prueba')) document.getElementById('ind-prueba').innerText = countPrueba;
 
             actualizarGraficas(cargaMap, tiposMap, clientesMap, marcasMap);
-            configurarModalOportunidades(datosFiltradosCorpus);
+            
+            const btnCard = document.getElementById('card-ventas');
+            if(btnCard) {
+                const newBtnCard = btnCard.cloneNode(true);
+                btnCard.parentNode.replaceChild(newBtnCard, btnCard);
+                newBtnCard.addEventListener('click', () => {
+                    const tbody = document.getElementById('listaOportunidades');
+                    tbody.innerHTML = '';
+                    const oportunidades = datosFiltradosCorpus.filter(d => d.oportunidad);
+                    if (oportunidades.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-8 text-center text-slate-500">No hay oportunidades de venta detectadas.</td></tr>';
+                    } else {
+                        oportunidades.forEach(op => {
+                            const tr = document.createElement('tr');
+                            tr.classList.add('hover:bg-slate-50', 'transition-colors');
+                            tr.innerHTML = `
+                                <td class="px-4 py-3 font-bold text-brand-600 whitespace-nowrap">${op.ID}</td>
+                                <td class="px-4 py-3 text-slate-800 font-medium">${op.Cliente}</td>
+                                <td class="px-4 py-3 text-slate-500">${op.Equipo}</td>
+                                <td class="px-4 py-3"><span class="bg-slate-100 text-slate-600 px-2 py-1 rounded-md text-xs font-bold border border-slate-200">${op.Ingeniero}</span></td>
+                                <td class="px-4 py-3 text-xs text-slate-500 italic whitespace-normal min-w-[250px] break-words">${op.motivo_venta}</td>
+                            `;
+                            tbody.appendChild(tr);
+                        });
+                    }
+                    document.getElementById('modalOportunidades').classList.remove('hidden');
+                });
+            }
         }
 
         function actualizarGraficas(carga, tipos, clientes, marcas) {
@@ -449,44 +833,6 @@
                     options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, datalabels: { display: false } } }
                 });
             }
-        }
-
-        function configurarModalOportunidades(datosFiltradosCorpus) {
-            const btnCard = document.getElementById('card-ventas');
-            if(!btnCard) return;
-            
-            const newBtnCard = btnCard.cloneNode(true);
-            btnCard.parentNode.replaceChild(newBtnCard, btnCard);
-
-            newBtnCard.addEventListener('click', () => {
-                const tbody = document.getElementById('listaOportunidades');
-                tbody.innerHTML = '';
-                
-                const oportunidades = datosFiltradosCorpus.filter(d => d.oportunidad);
-                
-                if (oportunidades.length === 0) {
-                    document.getElementById('noOportunidades').classList.remove('hidden');
-                    tbody.parentElement.classList.add('hidden');
-                } else {
-                    document.getElementById('noOportunidades').classList.add('hidden');
-                    tbody.parentElement.classList.remove('hidden');
-                    
-                    oportunidades.forEach(op => {
-                        const tr = document.createElement('tr');
-                        tr.classList.add('hover:bg-slate-50', 'transition-colors');
-                        // Se mejoró el texto de la última celda con whitespace-normal y break-words para que no se corte
-                        tr.innerHTML = `
-                            <td class="px-4 py-3 font-bold text-brand-600 whitespace-nowrap">${op.ID}</td>
-                            <td class="px-4 py-3 text-slate-800 font-medium">${op.Cliente}</td>
-                            <td class="px-4 py-3 text-slate-500">${op.Equipo}</td>
-                            <td class="px-4 py-3"><span class="bg-slate-100 text-slate-600 px-2 py-1 rounded-md text-xs font-bold border border-slate-200">${op.Ingeniero}</span></td>
-                            <td class="px-4 py-3 text-xs text-slate-500 italic whitespace-normal min-w-[250px] break-words">${op.motivo_venta}</td>
-                        `;
-                        tbody.appendChild(tr);
-                    });
-                }
-                document.getElementById('modalOportunidades').classList.remove('hidden');
-            });
         }
 
         if(document.getElementById('cerrarModal')) {
