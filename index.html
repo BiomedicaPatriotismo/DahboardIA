@@ -120,7 +120,6 @@
             <!-- KPIs -->
             <h2 class="text-lg font-bold text-slate-800 mb-4 px-2">Indicadores Clave de Rendimiento (KPIs)</h2>
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                <!-- Se mantienen los mismos KPI del Dashboard Original -->
                 <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between">
                     <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-2">Ratio Preventivo</div>
                     <div class="text-3xl font-bold text-kpi-blue" id="kpi-prev">0%</div>
@@ -310,7 +309,7 @@
 
     </main>
 
-    <!-- Modal Ventas (Mantenido del original) -->
+    <!-- Modal Ventas -->
     <div id="modalOportunidades" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden flex items-center justify-center z-50 fade-in">
         <div class="bg-white rounded-2xl w-11/12 max-w-5xl max-h-[85vh] overflow-hidden shadow-2xl flex flex-col">
             <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
@@ -338,6 +337,7 @@
         </div>
     </div>
 
+    <!-- Scripts unificados con correcciones -->
     <script>
         Chart.register(ChartDataLabels);
 
@@ -396,14 +396,15 @@
         }
 
         function parsearFechaMantenimiento(fechaStr) {
-            // Intenta extraer fecha si viene en un formato conocido o devuelve null
-            if (!fechaStr) return null;
-            let parts = fechaStr.split(/[-/]/);
+            if (!fechaStr || fechaStr === 'N/A') return null;
+            // Limpiamos la hora en caso de que venga como "12/05/2026 14:30:00"
+            let soloFecha = fechaStr.split(' ')[0];
+            let parts = soloFecha.split(/[-/]/);
+            
             if (parts.length >= 3) {
-                // asume DD/MM/YYYY o YYYY/MM/DD
-                let y = parts[2].length === 4 ? parts[2] : parts[0];
-                let m = parts[1];
-                let d = parts[0].length <= 2 ? parts[0] : parts[2];
+                let y = parts[2].length === 4 ? parts[2] : (parts[0].length === 4 ? parts[0] : '20' + parts[2]);
+                let m = parts[1].padStart(2, '0');
+                let d = parts[0].length <= 2 ? parts[0].padStart(2, '0') : parts[2].padStart(2, '0');
                 return new Date(`${y}-${m}-${d}T12:00:00Z`);
             }
             let ts = Date.parse(fechaStr);
@@ -417,32 +418,41 @@
             data.forEach(row => {
                 let obj = {};
                 
+                // Datos Operativos Generales
                 obj['Mes'] = (row['mes'] || 'sin mes').toLowerCase().trim();
                 obj['ID'] = row['id unico'] || row['submission id'] || row['idunico'] || 'S/N';
                 obj['Ingeniero'] = row['ingeniero de servicio'] || row['ingeniero'] || row['tecnico'] || 'Sin Asignar';
                 obj['Equipo'] = row['equipo:'] || row['equipo'] || 'Sin Equipo';
-                obj['Tipo de Servicio'] = row['tipo de servicio o mantenimiento'] || '';
-                obj['Cliente'] = row['unidad:'] || row['unidad'] || row['cliente'] || 'Sin Cliente';
+                obj['Tipo de Servicio'] = row['tipo de servicio o mantenimiento'] || row['tipo de servicio'] || '';
+                obj['Cliente'] = row['unidad:'] || row['unidad'] || row['cliente'] || row['hospital'] || 'Sin Cliente';
                 obj['Marca'] = row['marca:'] || row['marca'] || 'Sin Marca';
                 
-                // Nuevos campos para detalle cliente
+                // MAPEO AMPLIADO: Información de Equipos
                 obj['Modelo'] = row['modelo:'] || row['modelo'] || 'N/A';
-                obj['Serie'] = row['numero de serie:'] || row['serie'] || 'N/A';
-                obj['Inventario'] = row['numero de inventario:'] || row['inventario'] || 'N/A';
-                obj['Area'] = row['area o servicio:'] || row['area'] || 'N/A';
-                obj['FechaEjecucion'] = row['fecha de servicio'] || row['fecha'] || row['timestamp'] || 'N/A';
+                obj['Serie'] = row['numero de serie:'] || row['numero de serie'] || row['no. serie'] || row['no. de serie'] || row['serie'] || row['s/n'] || 'N/A';
+                obj['Inventario'] = row['numero de inventario:'] || row['numero de inventario'] || row['no. inventario'] || row['no. de inventario'] || row['inventario'] || 'N/A';
+                obj['Area'] = row['area o servicio:'] || row['area / servicio'] || row['area o servicio'] || row['area'] || row['departamento'] || row['ubicacion'] || 'N/A';
                 
+                // MAPEO AMPLIADO: Fechas
+                obj['FechaEjecucion'] = row['fecha de servicio'] || row['fecha'] || row['marca temporal'] || row['timestamp'] || row['fecha de ejecucion'] || 'N/A';
+                
+                // MAPEO AMPLIADO: Datos de Contacto de la Unidad
+                obj['Direccion'] = row['direccion'] || row['domicilio'] || row['direccion del cliente'] || 'Dirección no registrada';
+                obj['Telefono'] = row['telefono'] || row['tel'] || row['contacto'] || 'Teléfono no registrado';
+                obj['Correo'] = row['correo'] || row['email'] || row['correo electronico'] || 'contacto@hospital.com';
+
                 let tipoLower = obj['Tipo de Servicio'].toLowerCase();
                 obj['esPrev'] = tipoLower.includes('preventivo') || tipoLower.includes('calibracion');
                 obj['esCorr'] = tipoLower.includes('correctivo') || tipoLower.includes('asistencia');
 
+                // Procesamiento de Fechas
                 let dateObj = parsearFechaMantenimiento(obj['FechaEjecucion']);
                 if (dateObj) {
                     obj['FechaEjecucionStr'] = dateObj.toLocaleDateString('es-MX');
                     let nextDate = new Date(dateObj);
                     nextDate.setMonth(nextDate.getMonth() + 6);
                     obj['ProximoMantStr'] = nextDate.toLocaleDateString('es-MX');
-                    obj['MesProximoMant'] = nextDate.getMonth() + 1; // 1-12
+                    obj['MesProximoMant'] = nextDate.getMonth() + 1; 
                 } else {
                     obj['FechaEjecucionStr'] = obj['FechaEjecucion'];
                     obj['ProximoMantStr'] = 'Sin Fecha Válida';
@@ -473,7 +483,6 @@
             clientesUnicos = Array.from(clientesSet).sort();
         }
 
-        /*================ SIDEBAR & RUTAS ================*/
         function generarSidebarClientes() {
             const container = document.getElementById('listaClientesSidebar');
             container.innerHTML = '';
@@ -507,7 +516,6 @@
             renderizarDashboard('todos');
         }
 
-        /*================ VISTA CLIENTE ================*/
         function mostrarVistaCliente(clienteNombre) {
             resetSidebarStyles();
             const btns = document.getElementById('listaClientesSidebar').querySelectorAll('button');
@@ -524,29 +532,32 @@
             
             document.getElementById('clienteTitulo').innerText = clienteNombre;
             
-            // Filtrar datos
             const dataCliente = datosDetalleOrdenes.filter(d => d.Cliente === clienteNombre);
             
-            // Calcular KPIs
+            // INYECTAR DATOS DE LA UNIDAD HOSPITALARIA
+            if(dataCliente.length > 0) {
+                document.getElementById('clienteDireccion').innerText = dataCliente[0].Direccion;
+                document.getElementById('clienteTelefono').innerText = dataCliente[0].Telefono;
+                document.getElementById('clienteCorreo').innerText = dataCliente[0].Correo;
+            }
+            
             document.getElementById('clienteTotalServicios').innerText = dataCliente.length;
             
             let ingenieros = {}, tipos = {};
             dataCliente.forEach(d => {
-                if(d.Ingeniero) ingenieros[d.Ingeniero] = (ingenieros[d.Ingeniero] || 0) + 1;
+                if(d.Ingeniero && d.Ingeniero !== 'Sin Asignar') ingenieros[d.Ingeniero] = (ingenieros[d.Ingeniero] || 0) + 1;
                 if(d['Tipo de Servicio']) tipos[d['Tipo de Servicio']] = (tipos[d['Tipo de Servicio']] || 0) + 1;
             });
 
-            let maxIng = Object.keys(ingenieros).reduce((a, b) => ingenieros[a] > ingenieros[b] ? a : b, 'N/A');
-            let maxTipo = Object.keys(tipos).reduce((a, b) => tipos[a] > tipos[b] ? a : b, 'N/A');
+            let maxIng = Object.keys(ingenieros).length > 0 ? Object.keys(ingenieros).reduce((a, b) => ingenieros[a] > ingenieros[b] ? a : b) : 'N/A';
+            let maxTipo = Object.keys(tipos).length > 0 ? Object.keys(tipos).reduce((a, b) => tipos[a] > tipos[b] ? a : b) : 'N/A';
             
             document.getElementById('clienteIngeniero').innerText = maxIng;
             document.getElementById('clienteTipoServicio').innerText = maxTipo;
 
-            // Separar data
             dataPreventivos = dataCliente.filter(d => d.esPrev);
             dataCorrectivos = dataCliente.filter(d => d.esCorr);
 
-            // Poblar dropdown de meses correctivos basado en la data
             const mesCorrSelect = document.getElementById('filtroMesCorr');
             mesCorrSelect.innerHTML = '<option value="todos">Todos los meses</option>';
             const mesesUnicosCorr = [...new Set(dataCorrectivos.map(d => d.Mes))].filter(m => m && m !== 'sin mes');
@@ -556,14 +567,13 @@
                 mesCorrSelect.appendChild(opt);
             });
 
-            // Limpiar filtros
             document.getElementById('filtroTextoPrev').value = '';
             document.getElementById('filtroMesPrev').value = 'todos';
             document.getElementById('filtroMesCorr').value = 'todos';
 
             renderTablaPreventivos();
             renderTablaCorrectivos();
-            cambiarPestana('prev'); // Activar Preventivos por defecto
+            cambiarPestana('prev'); 
         }
 
         function cambiarPestana(tab) {
@@ -655,13 +665,10 @@
             });
         }
 
-        // Listeners para filtros de la vista Cliente
         document.getElementById('filtroTextoPrev').addEventListener('input', renderTablaPreventivos);
         document.getElementById('filtroMesPrev').addEventListener('change', renderTablaPreventivos);
         document.getElementById('filtroMesCorr').addEventListener('change', renderTablaCorrectivos);
 
-
-        /*================ LÓGICA ORIGINAL DASHBOARD ================*/
         const parsePercent = (val) => {
             if (!val) return 0;
             if (typeof val === 'number') return val;
