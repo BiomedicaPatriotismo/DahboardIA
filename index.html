@@ -4,13 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard Operativo y Módulo de Clientes</title>
-    
+
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+    <!-- FIX: versiones fijadas de librerías para evitar cambios inesperados -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
-    
+
     <script>
         tailwind.config = {
             theme: {
@@ -44,17 +45,16 @@
             .no-print { display: none !important; }
             aside { display: none !important; }
             main { overflow: visible !important; height: auto !important; }
-            
-            /* CSS específico para imprimir SOLO el Modal de Rutina cuando esté abierto */
-            body.printing-modal #dashboardContent, 
+
+            body.printing-modal #dashboardContent,
             body.printing-modal #clienteContent { display: none !important; }
-            
+
             body.printing-modal #modalRutina {
                 position: absolute !important; left: 0; top: 0; width: 100%; height: auto;
                 background: white !important; margin: 0; padding: 0; display: block !important;
             }
-            body.printing-modal #modalRutina > div { 
-                box-shadow: none !important; border: none !important; margin: 0 !important; 
+            body.printing-modal #modalRutina > div {
+                box-shadow: none !important; border: none !important; margin: 0 !important;
                 max-width: 100% !important; width: 100% !important; border-radius: 0 !important; padding: 0 !important;
             }
             .no-print-modal { display: none !important; }
@@ -64,8 +64,14 @@
 </head>
 <body class="bg-slate-50 text-slate-800 h-screen flex">
 
-    <!-- Barra Lateral -->
-    <aside class="w-64 bg-slate-900 text-slate-300 flex flex-col h-full shadow-xl z-20 shrink-0 transition-all duration-300 no-print">
+    <!-- FIX (móvil): botón hamburguesa para abrir el menú en pantallas chicas -->
+    <button id="btnSidebarToggle" class="lg:hidden fixed top-4 left-4 z-50 bg-slate-900 text-white p-2.5 rounded-xl shadow-lg no-print" aria-label="Abrir menú">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+    </button>
+    <div id="sidebarOverlay" class="hidden fixed inset-0 bg-slate-900/60 z-30 lg:hidden no-print"></div>
+
+    <!-- Barra Lateral (FIX móvil: colapsable, fija en pantallas grandes) -->
+    <aside id="sidebar" class="w-64 bg-slate-900 text-slate-300 flex flex-col h-full shadow-xl z-40 shrink-0 transition-transform duration-300 no-print fixed inset-y-0 left-0 -translate-x-full lg:static lg:translate-x-0">
         <div class="p-6 bg-slate-950/50">
             <h2 class="text-xl font-bold text-white tracking-tight">Menú Principal</h2>
         </div>
@@ -77,6 +83,10 @@
                 </div>
             </button>
             <div class="px-6 mt-6 mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Unidades Hospitalarias</div>
+            <!-- MEJORA: buscador de clientes en el sidebar -->
+            <div class="px-4 mb-2">
+                <input type="text" id="buscadorClientes" placeholder="Buscar cliente..." class="w-full bg-slate-800 border border-slate-700 text-slate-200 text-sm rounded-lg p-2 outline-none focus:border-brand-500 placeholder-slate-500">
+            </div>
             <div id="listaClientesSidebar" class="flex flex-col">
                 <!-- Se inyecta con JS -->
             </div>
@@ -85,7 +95,7 @@
 
     <!-- Contenedor Principal -->
     <main class="flex-1 overflow-y-auto relative h-full">
-        
+
         <!-- Banners de Carga y Error -->
         <div id="loadingBanner" class="max-w-7xl mx-auto px-4 mt-6 fade-in no-print">
             <div class="bg-blue-50 border-l-4 border-blue-500 text-blue-700 p-4 rounded-xl shadow-sm flex items-center">
@@ -107,11 +117,11 @@
         <!-- ================= VISTA DASHBOARD GENERAL ================= -->
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-12 print-content" id="dashboardContent" style="display: none;">
             <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 bg-white p-6 rounded-2xl shadow-sm border border-slate-100 fade-in">
-                <div class="mb-4 lg:mb-0">
+                <div class="mb-4 lg:mb-0 pl-12 lg:pl-0">
                     <h1 class="text-3xl font-bold text-slate-900 tracking-tight">Métricas Operativas</h1>
                     <p class="text-sm text-slate-500 mt-1">Análisis de rendimiento y cargas de trabajo global</p>
                 </div>
-                
+
                 <div class="flex flex-col sm:flex-row gap-3 w-full lg:w-auto no-print">
                     <div class="relative w-full sm:w-56">
                         <select id="monthFilter" class="appearance-none bg-slate-50 border border-slate-200 text-slate-900 text-sm font-medium rounded-xl focus:ring-brand-500 focus:border-brand-500 block w-full p-3 pr-10 cursor-pointer outline-none">
@@ -213,10 +223,10 @@
 
         <!-- ================= VISTA: DETALLE DE CLIENTE ================= -->
         <div id="clienteContent" class="hidden max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-12 fade-in print-content">
-            
+
             <!-- Cabecera de Información de Cliente -->
             <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 break-inside-avoid">
-                <div>
+                <div class="pl-12 lg:pl-0">
                     <h1 class="text-3xl font-bold text-slate-900 tracking-tight" id="clienteTitulo">Nombre Hospital</h1>
                     <div class="mt-3 flex flex-col sm:flex-row gap-4 text-sm text-slate-600">
                         <div class="flex items-center gap-1">
@@ -235,19 +245,27 @@
                 </div>
             </div>
 
-            <!-- KPIs del Cliente -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 break-inside-avoid">
+            <!-- KPIs del Cliente (MEJORA: se agregan conteos Preventivo / Correctivo) -->
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8 break-inside-avoid">
                 <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-100">
-                    <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-1">Total Servicios Ejecutados</div>
+                    <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-1">Total Servicios</div>
                     <div class="text-3xl font-bold text-slate-800" id="clienteTotalServicios">0</div>
                 </div>
                 <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-100">
-                    <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-1">Ingeniero Principal</div>
-                    <div class="text-xl font-bold text-brand-600 mt-1 truncate" id="clienteIngeniero">N/A</div>
+                    <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-1">Preventivos</div>
+                    <div class="text-3xl font-bold text-kpi-blue" id="clientePrevCount">0</div>
                 </div>
                 <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-100">
-                    <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-1">Tipo de Servicio Frecuente</div>
-                    <div class="text-xl font-bold text-slate-800 mt-1 truncate" id="clienteTipoServicio">N/A</div>
+                    <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-1">Correctivos</div>
+                    <div class="text-3xl font-bold text-kpi-orange" id="clienteCorrCount">0</div>
+                </div>
+                <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-100">
+                    <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-1">Ingeniero Principal</div>
+                    <div class="text-base font-bold text-brand-600 mt-1 truncate" id="clienteIngeniero" title="">N/A</div>
+                </div>
+                <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-100">
+                    <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-1">Servicio Frecuente</div>
+                    <div class="text-base font-bold text-slate-800 mt-1 truncate" id="clienteTipoServicio" title="">N/A</div>
                 </div>
             </div>
 
@@ -268,6 +286,7 @@
                         <div class="flex flex-col xl:flex-row gap-4 mb-6 justify-between items-center no-print">
                             <input type="text" id="filtroTextoPrev" placeholder="Buscar equipo, serie..." class="w-full xl:w-1/3 p-2.5 border border-slate-300 rounded-lg text-sm focus:ring-brand-500 outline-none">
                             <div class="flex flex-wrap items-center gap-3 w-full xl:w-auto justify-end">
+                                <span id="contadorPrev" class="text-xs font-semibold text-slate-400"></span>
                                 <div class="flex items-center gap-2">
                                     <label class="text-xs font-semibold text-slate-500 uppercase whitespace-nowrap">Mes Próx. Mant:</label>
                                     <select id="filtroMesPrev" class="p-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-brand-500 outline-none">
@@ -310,6 +329,7 @@
                     <!-- Contenido Pestaña Correctivos -->
                     <div id="contentCorr" class="hidden">
                         <div class="flex flex-col sm:flex-row gap-4 mb-6 justify-end items-center no-print">
+                            <span id="contadorCorr" class="text-xs font-semibold text-slate-400"></span>
                             <div class="flex items-center gap-2 w-full sm:w-auto">
                                 <label class="text-xs font-semibold text-slate-500 uppercase">Mes de Ejecución:</label>
                                 <select id="filtroMesCorr" class="p-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-brand-500 outline-none">
@@ -325,6 +345,7 @@
                                         <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Equipo</th>
                                         <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Marca / Modelo</th>
                                         <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">No. Serie</th>
+                                        <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Tipo</th>
                                         <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Fecha Ejecución</th>
                                     </tr>
                                 </thead>
@@ -343,7 +364,7 @@
     <!-- Modal Rutina de Mantenimiento -->
     <div id="modalRutina" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm hidden items-center justify-center z-50 overflow-y-auto py-8 no-print">
         <div class="bg-white w-full max-w-4xl rounded-xl shadow-2xl relative flex flex-col mx-4 my-auto print:w-full print:max-w-none print:shadow-none print:rounded-none">
-            
+
             <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-xl no-print-modal sticky top-0 z-10">
                 <h3 class="text-lg font-bold text-slate-800">Generador de Rutina</h3>
                 <div class="flex gap-3 items-center">
@@ -356,7 +377,7 @@
                     </button>
                 </div>
             </div>
-            
+
             <div class="p-8 text-slate-800 flex-1 overflow-y-auto" id="rutinaPrintableArea">
                 <!-- Header Reporte -->
                 <div class="text-center mb-8 border-b-2 border-slate-800 pb-4">
@@ -390,7 +411,7 @@
                         <div><span class="font-semibold text-slate-500 block text-xs">Ingeniero Asignado:</span> <span id="rutIng"></span></div>
                         <div><span class="font-semibold text-slate-500 block text-xs">Próximo Mantenimiento:</span> <span id="rutProx" class="font-bold text-brand-600"></span></div>
                     </div>
-                    
+
                     <h4 class="font-bold bg-slate-100 px-3 py-1.5 uppercase text-xs tracking-wider mb-3 border-l-4 border-slate-800">III. Datos del Equipo de Calibración / Patrón</h4>
                     <div class="text-sm px-3 border border-slate-200 rounded-lg p-3 bg-slate-50/50">
                         <span id="rutEqCalibracion" class="font-medium text-slate-800"></span>
@@ -415,13 +436,13 @@
                     <div class="mb-4 px-3 py-2 text-sm text-slate-700 bg-slate-50 rounded-lg border border-slate-200 font-medium" id="rutinaTextoMedicion">
                         <!-- Texto original inyectado por JS -->
                     </div>
-                    
+
                     <div class="flex flex-col gap-6 items-start">
                         <!-- Tabla Dinámica -->
                         <div id="rutinaTablaContainer" class="overflow-x-auto w-full shadow-sm rounded-lg border border-slate-200 bg-white">
                             <!-- Inyectado por JS -->
                         </div>
-                        
+
                         <!-- Gráfico Dinámico -->
                         <div id="rutinaChartWrapper" class="relative w-full h-72 border border-slate-200 rounded-lg p-4 bg-white shadow-sm">
                             <canvas id="rutinaChart"></canvas>
@@ -473,10 +494,61 @@
     <script>
         Chart.register(ChartDataLabels);
 
+        /* ============================================================
+           CONFIGURACIÓN GENERAL
+           ============================================================ */
+
+        // Formato de fecha del CSV publicado por Google Sheets.
+        // 'DMY' = día/mes/año (hoja en español)  |  'MDY' = mes/día/año (hoja en inglés/US).
+        // Solo se usa cuando la fecha es ambigua (ambas partes <= 12).
+        const FORMATO_FECHA = 'DMY';
+
+        // Excluir del dashboard las órdenes marcadas como prueba
+        // (detecta la frase "orden de prueba" en observaciones/detalle).
+        const EXCLUIR_ORDENES_PRUEBA = true;
+
+        // Frecuencia de mantenimiento (en meses) según el tipo de equipo.
+        // Se busca la palabra clave dentro del nombre del equipo; si ninguna
+        // coincide se usa FRECUENCIA_DEFAULT. Ajusta según tus contratos.
+        const FRECUENCIA_DEFAULT = 6;
+        const FRECUENCIAS_MESES = [
+            { clave: 'cama',    meses: 12 },
+            { clave: 'camilla', meses: 12 },
+            { clave: 'mesa',    meses: 12 }
+            // Ejemplos para agregar:
+            // { clave: 'ventilador', meses: 4 },
+            // { clave: 'anestesia',  meses: 6 },
+        ];
+
+        const MESES_ES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+
+        /* ============================================================
+           UTILIDADES
+           ============================================================ */
+
+        // FIX: normalizador de acentos reutilizable
+        const normalizar = (s) => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+        // FIX: escape de HTML para prevenir inyección/roturas por comillas y < >
+        const esc = (s) => String(s ?? '')
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+        // FIX: expandir notación científica en series/inventarios (ej. "9.09033102E8" -> "909033102")
+        const normalizarSerie = (v) => {
+            const s = String(v ?? '').trim();
+            if (/^-?\d+(\.\d+)?[eE]\+?\d+$/.test(s)) {
+                const n = Number(s);
+                if (Number.isFinite(n)) return n.toLocaleString('fullwide', { useGrouping: false });
+            }
+            // Quitar ".0" final que agrega Sheets a números (ej. "1007.0")
+            return s.replace(/\.0+$/, '');
+        };
+
         let charts = { carga: null, tipos: null, clientes: null, marcas: null };
-        let chartRutinaObj = null; // Para la grafica del modal
-        
-        let datosAgrupadosPorMes = []; 
+        let chartRutinaObj = null;
+
+        let datosAgrupadosPorMes = [];
         let datosDetalleOrdenes = [];
         let clientesUnicos = [];
         let clienteActual = '';
@@ -487,7 +559,7 @@
 
         const csvUrlDashboard = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTX8QjDtAKXCfIUI4Uc2FENvOfBh-XCoxjBGWiTxRkqHQ3YjnvY3TnZf7FqJsn2o3yAyhV0ge78nJea/pub?gid=570492353&single=true&output=csv';
         const csvUrlCorpus = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTX8QjDtAKXCfIUI4Uc2FENvOfBh-XCoxjBGWiTxRkqHQ3YjnvY3TnZf7FqJsn2o3yAyhV0ge78nJea/pub?gid=680282818&single=true&output=csv';
-        
+
         async function cargarDatos() {
             try {
                 const [respDashboard, respCorpus] = await Promise.all([
@@ -508,15 +580,14 @@
 
                 Papa.parse(csvTextoCorpus, {
                     header: true, skipEmptyLines: true,
-                    transformHeader: function(h) { return h.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""); },
+                    transformHeader: function(h) { return normalizar(h.trim().toLowerCase()); },
                     complete: function(results) { procesarDatosCorpus(results.data); }
                 });
 
-                setTimeout(() => {
-                    document.getElementById('loadingBanner').style.display = 'none';
-                    generarSidebarClientes();
-                    mostrarDashboard(); 
-                }, 500);
+                // FIX: PapaParse sobre strings es síncrono; ya no hace falta el setTimeout
+                document.getElementById('loadingBanner').style.display = 'none';
+                generarSidebarClientes();
+                mostrarDashboard();
 
             } catch (error) {
                 mostrarError("Error de Conexión: " + error.message);
@@ -529,113 +600,207 @@
             document.getElementById('errorTexto').innerText = mensaje;
         }
 
+        /* ============================================================
+           FIX FECHAS: soporta seriales de Excel/Sheets, formato ISO,
+           y resuelve la ambigüedad D/M vs M/D con heurística + FORMATO_FECHA
+           ============================================================ */
         function parsearFechaMantenimiento(fechaStr) {
-            if (!fechaStr || fechaStr === 'N/A') return null;
-            let soloFecha = fechaStr.split(' ')[0];
-            let parts = soloFecha.split(/[-/]/);
-            
-            if (parts.length >= 3) {
-                let y = parts[2].length === 4 ? parts[2] : (parts[0].length === 4 ? parts[0] : '20' + parts[2]);
-                let m = parts[1].padStart(2, '0');
-                let d = parts[0].length <= 2 ? parts[0].padStart(2, '0') : parts[2].padStart(2, '0');
-                return new Date(`${y}-${m}-${d}T12:00:00Z`);
+            if (fechaStr === null || fechaStr === undefined) return null;
+            let s = String(fechaStr).trim();
+            if (!s || s === 'N/A' || s === '.') return null;
+
+            // Serial numérico de Excel/Google Sheets (ej. 46128.676)
+            if (/^\d{4,6}(\.\d+)?$/.test(s)) {
+                const serial = parseFloat(s);
+                if (serial > 20000 && serial < 80000) {
+                    return new Date(Math.round((serial - 25569) * 86400000));
+                }
             }
-            let ts = Date.parse(fechaStr);
+
+            const soloFecha = s.split(' ')[0];
+            const parts = soloFecha.split(/[-\/]/);
+
+            if (parts.length >= 3) {
+                const p = parts.map(x => parseInt(x, 10));
+                if (p.some(isNaN)) {
+                    const ts = Date.parse(s);
+                    return isNaN(ts) ? null : new Date(ts);
+                }
+                let y, m, d;
+                if (parts[0].length === 4) {
+                    // Formato ISO AAAA-MM-DD
+                    y = p[0]; m = p[1]; d = p[2];
+                } else {
+                    y = parts[2].length === 4 ? p[2] : 2000 + p[2];
+                    if (p[0] > 12)      { d = p[0]; m = p[1]; }   // primer número > 12 => es día
+                    else if (p[1] > 12) { m = p[0]; d = p[1]; }   // segundo número > 12 => es día
+                    else if (FORMATO_FECHA === 'MDY') { m = p[0]; d = p[1]; }
+                    else                { d = p[0]; m = p[1]; }
+                }
+                if (m < 1 || m > 12 || d < 1 || d > 31) return null;
+                return new Date(Date.UTC(y, m - 1, d, 12));
+            }
+
+            const ts = Date.parse(s);
             return isNaN(ts) ? null : new Date(ts);
+        }
+
+        /* ============================================================
+           FIX COLUMNAS: búsqueda con prioridad (exacta > inicia con > contiene)
+           para evitar que "Valores de Referencia 1" gane sobre
+           "Valores de Medición", o "Detalle de Funcionalidad" sobre
+           "Observaciones".
+           ============================================================ */
+        function buscarColumna(llaves, candidatos) {
+            for (const c of candidatos) {
+                const exacta = llaves.find(l => l === c);
+                if (exacta) return exacta;
+            }
+            for (const c of candidatos) {
+                const inicia = llaves.find(l => l.startsWith(c));
+                if (inicia) return inicia;
+            }
+            for (const c of candidatos) {
+                const contiene = llaves.find(l => l.includes(c));
+                if (contiene) return contiene;
+            }
+            return undefined;
+        }
+
+        function frecuenciaParaEquipo(nombreEquipo) {
+            const eqNorm = normalizar(String(nombreEquipo).toLowerCase());
+            const regla = FRECUENCIAS_MESES.find(r => eqNorm.includes(r.clave));
+            return regla ? regla.meses : FRECUENCIA_DEFAULT;
         }
 
         function procesarDatosCorpus(data) {
             datosDetalleOrdenes = [];
             const clientesSet = new Set();
-            
-            if(data.length === 0) return;
-            
-            const llaves = Object.keys(data[0]);
-            const findCol = (palabras) => llaves.find(llave => palabras.some(p => llave.includes(p)));
-            
-            // Busca columnas base
-            const cMes = findCol(['mes']);
-            const cID = findCol(['id unico', 'idunico', 'submission id', 'folio', 'orden']);
-            const cIng = findCol(['ingeniero', 'tecnico', 'encargado']);
-            const cEq = findCol(['equipo']);
-            const cTipo = findCol(['tipo de servicio', 'servicio', 'mantenimiento']);
-            const cCli = findCol(['unidad', 'cliente', 'hospital']);
-            const cMarca = findCol(['marca']);
-            const cMod = findCol(['modelo']);
-            const cSer = findCol(['serie', 's/n']);
-            const cInv = findCol(['inventario']);
-            const cArea = findCol(['area', 'servicio:', 'departamento', 'ubicacion']);
-            const cFecha = findCol(['fecha', 'marca temporal', 'timestamp', 'ejecucion']);
-            
-            // Datos Contacto
-            const cDir = findCol(['direccion', 'domicilio', 'calle']);
-            const cTel = findCol(['telefono', 'tel', 'celular']);
-            const cCor = findCol(['correo', 'email']);
-            
-            const cEst = findCol(['estatus', 'seguimiento']);
-            const cObs = findCol(['observacion', 'detalle', 'falla']);
 
-            // Nuevas Columnas para Rutina
-            const cValores = findCol(['valores de medicion', 'valores', 'medicion', 'resultados', 'pruebas']);
-            const cArchivos = findCol(['carga de archivos', 'archivos', 'evidencia', 'fotos']);
-            const cCalibracion = findCol(['datos del equipo de calibracion', 'equipo de calibracion', 'patron', 'calibracion']);
+            if (data.length === 0) return;
+
+            const llaves = Object.keys(data[0]);
+
+            // Nota: los encabezados ya llegan en minúsculas y sin acentos,
+            // conservando los dos puntos finales cuando existen (ej. "equipo:").
+            const cID     = buscarColumna(llaves, ['id unico', 'idunico', 'submission id', 'folio', 'orden']);
+            const cIng    = buscarColumna(llaves, ['ingeniero de servicio', 'ingeniero', 'tecnico', 'encargado']);
+            const cEq     = buscarColumna(llaves, ['equipo:', 'equipo']);
+            const cTipo   = buscarColumna(llaves, ['tipo de servicio o mantenimiento', 'tipo de servicio', 'tipo de mantenimiento']);
+            const cCli    = buscarColumna(llaves, ['unidad:', 'unidad', 'cliente', 'hospital']);
+            const cMarca  = buscarColumna(llaves, ['marca:', 'marca']);
+            const cMod    = buscarColumna(llaves, ['modelo:', 'modelo']);
+            const cSer    = buscarColumna(llaves, ['serie:', 'serie', 's/n']);
+            const cInv    = buscarColumna(llaves, ['inventario:', 'inventario']);
+            const cArea   = buscarColumna(llaves, ['area o ubicacion:', 'area o ubicacion', 'area', 'departamento', 'ubicacion']);
+            const cFecha  = buscarColumna(llaves, ['fecha de inicio:', 'fecha de inicio', 'marca temporal', 'timestamp', 'fecha']);
+            const cFechaFin = buscarColumna(llaves, ['fecha de fin:', 'fecha de fin', 'fecha fin']);
+
+            const cDir    = buscarColumna(llaves, ['domicilio:', 'domicilio', 'direccion', 'calle']);
+            const cTel    = buscarColumna(llaves, ['telefono:', 'telefono', 'tel', 'celular']);
+            const cCor    = buscarColumna(llaves, ['email', 'correo']);
+
+            const cEst    = buscarColumna(llaves, ['estatus de seguimiento', 'estatus', 'seguimiento']);
+            // FIX: observaciones y detalle por separado (antes 'detalle' capturaba primero)
+            const cObs    = buscarColumna(llaves, ['observaciones:', 'observaciones', 'observacion']);
+            const cDet    = buscarColumna(llaves, ['detalle de funcionalidad:', 'detalle de funcionalidad', 'detalle', 'falla']);
+
+            // FIX: solo la columna correcta de mediciones (búsqueda exacta primero)
+            const cValores = buscarColumna(llaves, ['valores de medicion', 'resultados de medicion', 'mediciones']);
+            const cCalibracion = buscarColumna(llaves, ['datos del equipo de calibracion', 'equipo de calibracion', 'patron']);
+
+            // FIX: las fotos viven en 4 columnas específicas del formato de Jotform
+            const cFotoAntes   = buscarColumna(llaves, ['antes del mantenimiento']);
+            const cFotoDurante = buscarColumna(llaves, ['durante el mantenimiento']);
+            const cFotoFinal   = buscarColumna(llaves, ['al final del mantenimiento']);
+            const cFotoSerie   = buscarColumna(llaves, ['foto numero de serie:', 'foto numero de serie']);
 
             data.forEach(row => {
                 let obj = {};
-                
-                obj['Mes'] = cMes ? (row[cMes] || 'sin mes').toLowerCase().trim() : 'sin mes';
-                obj['ID'] = cID ? (row[cID] || 'S/N') : 'S/N';
+
+                obj['ID'] = cID ? (row[cID] || 'S/N').trim() : 'S/N';
                 obj['Ingeniero'] = cIng ? (row[cIng] || 'Sin Asignar') : 'Sin Asignar';
                 obj['Equipo'] = cEq ? (row[cEq] || 'Sin Equipo') : 'Sin Equipo';
                 obj['Tipo de Servicio'] = cTipo ? (row[cTipo] || '') : '';
-                obj['Cliente'] = cCli ? (row[cCli] || 'Sin Cliente') : 'Sin Cliente';
+                obj['Cliente'] = cCli ? (row[cCli] || 'Sin Cliente').trim() : 'Sin Cliente';
                 obj['Marca'] = cMarca ? (row[cMarca] || 'Sin Marca') : 'Sin Marca';
-                obj['Modelo'] = cMod ? (row[cMod] || 'N/A') : 'N/A';
-                obj['Serie'] = cSer ? (row[cSer] || 'N/A') : 'N/A';
-                obj['Inventario'] = cInv ? (row[cInv] || 'N/A') : 'N/A';
+                obj['Modelo'] = cMod ? normalizarSerie(row[cMod] || 'N/A') : 'N/A';
+                obj['Serie'] = cSer ? normalizarSerie(row[cSer] || 'N/A') : 'N/A';
+                obj['Inventario'] = cInv ? normalizarSerie(row[cInv] || 'N/A') : 'N/A';
                 obj['Area'] = cArea ? (row[cArea] || 'N/A') : 'N/A';
                 obj['FechaEjecucion'] = cFecha ? (row[cFecha] || 'N/A') : 'N/A';
-                
+                obj['FechaFin'] = cFechaFin ? (row[cFechaFin] || '') : '';
+
                 obj['Direccion'] = cDir ? (row[cDir] || 'Dirección no registrada') : 'Dirección no registrada';
                 obj['Telefono'] = cTel ? (row[cTel] || 'Teléfono no registrado') : 'Teléfono no registrado';
-                obj['Correo'] = cCor ? (row[cCor] || 'contacto@hospital.com') : 'contacto@hospital.com';
+                obj['Correo'] = cCor ? (row[cCor] || 'Correo no registrado') : 'Correo no registrado';
 
-                // Guardar datos para Modal de Rutina
                 obj['ValoresMedicion'] = cValores ? (row[cValores] || '') : '';
-                obj['Archivos'] = cArchivos ? (row[cArchivos] || '') : '';
                 obj['EquipoCalibracion'] = cCalibracion ? (row[cCalibracion] || 'No se especificó equipo patrón') : 'No se especificó equipo patrón';
 
-                let tipoLower = obj['Tipo de Servicio'].toLowerCase();
-                obj['esPrev'] = tipoLower.includes('preventivo') || tipoLower.includes('calibracion');
-                obj['esCorr'] = tipoLower.includes('correctivo') || tipoLower.includes('asistencia');
+                // FIX: fotos etiquetadas desde sus 4 columnas reales
+                obj['Fotos'] = [];
+                const agregarFoto = (col, etiqueta) => {
+                    if (!col) return;
+                    const url = String(row[col] || '').trim();
+                    if (url && url !== 'undefined' && /^https?:\/\//i.test(url)) {
+                        obj['Fotos'].push({ url: url, etiqueta: etiqueta });
+                    }
+                };
+                agregarFoto(cFotoAntes, 'Antes');
+                agregarFoto(cFotoDurante, 'Durante');
+                agregarFoto(cFotoFinal, 'Al final');
+                agregarFoto(cFotoSerie, 'No. de Serie');
 
-                let dateObj = parsearFechaMantenimiento(obj['FechaEjecucion']);
+                // FIX: clasificación con acentos normalizados; ENTREGA cae en la
+                // pestaña de correctivos/asistencia para que ninguna orden se pierda
+                const tipoNorm = normalizar(obj['Tipo de Servicio'].toLowerCase());
+                obj['esPrev'] = tipoNorm.includes('preventivo') || tipoNorm.includes('calibracion');
+                obj['esCorr'] = tipoNorm.includes('correctivo') || tipoNorm.includes('asistencia') || tipoNorm.includes('entrega');
+
+                const dateObj = parsearFechaMantenimiento(obj['FechaEjecucion']);
+                obj['FechaObj'] = dateObj;
                 if (dateObj) {
-                    obj['FechaEjecucionStr'] = dateObj.toLocaleDateString('es-MX');
-                    let nextDate = new Date(dateObj);
-                    nextDate.setMonth(nextDate.getMonth() + 6);
-                    obj['ProximoMantStr'] = nextDate.toLocaleDateString('es-MX');
-                    obj['MesProximoMant'] = nextDate.getMonth() + 1; 
+                    obj['FechaEjecucionStr'] = dateObj.toLocaleDateString('es-MX', { timeZone: 'UTC' });
+                    // FIX: el mes se deriva de la fecha (la hoja no tiene columna "Mes")
+                    obj['Mes'] = MESES_ES[dateObj.getUTCMonth()];
+
+                    // MEJORA: frecuencia configurable por tipo de equipo (antes fijo +6)
+                    const mesesFrec = frecuenciaParaEquipo(obj['Equipo']);
+                    const nextDate = new Date(dateObj);
+                    nextDate.setUTCMonth(nextDate.getUTCMonth() + mesesFrec);
+                    obj['ProximoMantDate'] = nextDate;
+                    obj['ProximoMantStr'] = nextDate.toLocaleDateString('es-MX', { timeZone: 'UTC' });
+                    obj['MesProximoMant'] = nextDate.getUTCMonth() + 1;
                 } else {
-                    obj['FechaEjecucionStr'] = obj['FechaEjecucion'] !== 'N/A' && obj['FechaEjecucion'] !== '' ? obj['FechaEjecucion'] : 'Sin Fecha Registrada';
+                    obj['FechaEjecucionStr'] = (obj['FechaEjecucion'] !== 'N/A' && obj['FechaEjecucion'] !== '') ? obj['FechaEjecucion'] : 'Sin Fecha Registrada';
+                    obj['Mes'] = 'sin mes';
+                    obj['ProximoMantDate'] = null;
                     obj['ProximoMantStr'] = 'Sin Fecha Válida';
                     obj['MesProximoMant'] = -1;
                 }
 
-                let estatusRaw = cEst ? (row[cEst] || '').toUpperCase().trim() : '';
-                let estatusLimpio = estatusRaw.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-                
+                const estatusRaw = cEst ? (row[cEst] || '').toUpperCase().trim() : '';
+                const estatusLimpio = normalizar(estatusRaw);
+
                 obj['estatus_seguimiento_limpio'] = estatusLimpio;
                 obj['oportunidad'] = false;
                 obj['motivo_venta'] = '';
-                
+
+                const textoObs = cObs ? (row[cObs] || '').trim() : '';
+                const textoDet = cDet ? (row[cDet] || '').trim() : '';
+
                 if (estatusLimpio.includes('REQUIERE COTIZACION')) {
                     obj['oportunidad'] = true;
-                    let nota = cObs ? (row[cObs] || '').trim() : '';
-                    obj['motivo_venta'] = nota !== '' ? nota : estatusRaw;
+                    obj['motivo_venta'] = textoObs || textoDet || estatusRaw;
                 }
 
+                // MEJORA: detectar y excluir órdenes de prueba
+                const textoCompleto = normalizar((textoObs + ' ' + textoDet).toLowerCase());
+                obj['esPrueba'] = textoCompleto.includes('orden de prueba') || textoCompleto.includes('es una prueba');
+
                 if (obj['ID'] !== 'S/N' && obj['ID'] !== '') {
+                    if (EXCLUIR_ORDENES_PRUEBA && obj['esPrueba']) return;
                     datosDetalleOrdenes.push(obj);
                     if (obj['Cliente'] !== 'Sin Cliente' && obj['Cliente'] !== '') {
                         clientesSet.add(obj['Cliente']);
@@ -646,22 +811,29 @@
             clientesUnicos = Array.from(clientesSet).sort();
         }
 
-        function generarSidebarClientes() {
+        /* ============================================================
+           SIDEBAR
+           ============================================================ */
+        function generarSidebarClientes(filtroTexto = '') {
             const container = document.getElementById('listaClientesSidebar');
             container.innerHTML = '';
-            clientesUnicos.forEach(cliente => {
-                const btn = document.createElement('button');
-                btn.className = "w-full text-left px-6 py-2.5 text-sm hover:bg-slate-800 hover:text-white transition-colors text-slate-400 truncate";
-                btn.innerText = cliente;
-                btn.onclick = () => mostrarVistaCliente(cliente);
-                container.appendChild(btn);
-            });
+            const filtroNorm = normalizar(filtroTexto.toLowerCase());
+            clientesUnicos
+                .filter(c => !filtroNorm || normalizar(c.toLowerCase()).includes(filtroNorm))
+                .forEach(cliente => {
+                    const btn = document.createElement('button');
+                    btn.className = "w-full text-left px-6 py-2.5 text-sm hover:bg-slate-800 hover:text-white transition-colors text-slate-400 truncate";
+                    btn.innerText = cliente;
+                    btn.title = cliente;
+                    btn.onclick = () => { mostrarVistaCliente(cliente); cerrarSidebarMovil(); };
+                    container.appendChild(btn);
+                });
         }
 
         function resetSidebarStyles() {
             document.getElementById('btnDashboard').classList.remove('border-l-4', 'border-brand-500', 'bg-slate-800/50', 'text-white');
             document.getElementById('btnDashboard').classList.add('text-slate-400');
-            
+
             const btns = document.getElementById('listaClientesSidebar').querySelectorAll('button');
             btns.forEach(b => {
                 b.classList.remove('text-brand-400', 'font-bold', 'bg-slate-800/50', 'border-l-4', 'border-brand-500');
@@ -669,21 +841,56 @@
             });
         }
 
+        // MEJORA móvil: abrir/cerrar sidebar
+        function toggleSidebar() {
+            const sb = document.getElementById('sidebar');
+            const ov = document.getElementById('sidebarOverlay');
+            const abierto = !sb.classList.contains('-translate-x-full');
+            if (abierto) { sb.classList.add('-translate-x-full'); ov.classList.add('hidden'); }
+            else { sb.classList.remove('-translate-x-full'); ov.classList.remove('hidden'); }
+        }
+        function cerrarSidebarMovil() {
+            if (window.innerWidth < 1024) {
+                document.getElementById('sidebar').classList.add('-translate-x-full');
+                document.getElementById('sidebarOverlay').classList.add('hidden');
+            }
+        }
+
         function mostrarDashboard() {
             resetSidebarStyles();
             document.getElementById('btnDashboard').classList.add('border-l-4', 'border-brand-500', 'bg-slate-800/50', 'text-white');
             document.getElementById('btnDashboard').classList.remove('text-slate-400');
-            
+
             document.getElementById('clienteContent').style.display = 'none';
             document.getElementById('dashboardContent').style.display = 'block';
-            renderizarDashboard('todos');
+            cerrarSidebarMovil();
+            renderizarDashboard(document.getElementById('monthFilter').value || 'todos');
+        }
+
+        /* ============================================================
+           VISTA DE CLIENTE
+           ============================================================ */
+
+        // MEJORA: elegir el dato de contacto más representativo
+        // (el valor más frecuente; en empate, el más completo/largo)
+        function mejorValor(valores, invalidos) {
+            const conteo = {};
+            valores.forEach(v => {
+                const s = String(v || '').trim();
+                if (!s || invalidos.includes(s)) return;
+                conteo[s] = (conteo[s] || 0) + 1;
+            });
+            const entradas = Object.entries(conteo);
+            if (entradas.length === 0) return null;
+            entradas.sort((a, b) => (b[1] - a[1]) || (b[0].length - a[0].length));
+            return entradas[0][0];
         }
 
         function mostrarVistaCliente(clienteNombre) {
             resetSidebarStyles();
             const btns = document.getElementById('listaClientesSidebar').querySelectorAll('button');
             btns.forEach(b => {
-                if(b.innerText === clienteNombre) {
+                if (b.innerText === clienteNombre) {
                     b.classList.add('text-brand-400', 'font-bold', 'bg-slate-800/50', 'border-l-4', 'border-brand-500');
                     b.classList.remove('text-slate-400');
                 }
@@ -692,40 +899,44 @@
             document.getElementById('dashboardContent').style.display = 'none';
             document.getElementById('clienteContent').style.display = 'block';
             clienteActual = clienteNombre;
-            
+
             document.getElementById('clienteTitulo').innerText = clienteNombre;
-            
+
             const dataCliente = datosDetalleOrdenes.filter(d => d.Cliente === clienteNombre);
-            
-            if(dataCliente.length > 0) {
-                let regConInfo = dataCliente.find(d => d.Direccion !== 'Dirección no registrada') || dataCliente[0];
-                document.getElementById('clienteDireccion').innerText = regConInfo.Direccion;
-                document.getElementById('clienteTelefono').innerText = regConInfo.Telefono;
-                document.getElementById('clienteCorreo').innerText = regConInfo.Correo;
-            }
-            
+
+            document.getElementById('clienteDireccion').innerText = mejorValor(dataCliente.map(d => d.Direccion), ['Dirección no registrada']) || 'Dirección no registrada';
+            document.getElementById('clienteTelefono').innerText = mejorValor(dataCliente.map(d => d.Telefono), ['Teléfono no registrado']) || 'Teléfono no registrado';
+            document.getElementById('clienteCorreo').innerText = mejorValor(dataCliente.map(d => d.Correo), ['Correo no registrado']) || 'Correo no registrado';
+
             document.getElementById('clienteTotalServicios').innerText = dataCliente.length;
-            
+
             let ingenieros = {}, tipos = {};
             dataCliente.forEach(d => {
-                if(d.Ingeniero && d.Ingeniero !== 'Sin Asignar') ingenieros[d.Ingeniero] = (ingenieros[d.Ingeniero] || 0) + 1;
-                if(d['Tipo de Servicio']) tipos[d['Tipo de Servicio']] = (tipos[d['Tipo de Servicio']] || 0) + 1;
+                if (d.Ingeniero && d.Ingeniero !== 'Sin Asignar') ingenieros[d.Ingeniero] = (ingenieros[d.Ingeniero] || 0) + 1;
+                if (d['Tipo de Servicio']) tipos[d['Tipo de Servicio']] = (tipos[d['Tipo de Servicio']] || 0) + 1;
             });
 
-            let maxIng = Object.keys(ingenieros).length > 0 ? Object.keys(ingenieros).reduce((a, b) => ingenieros[a] > ingenieros[b] ? a : b) : 'N/A';
-            let maxTipo = Object.keys(tipos).length > 0 ? Object.keys(tipos).reduce((a, b) => tipos[a] > tipos[b] ? a : b) : 'N/A';
-            
-            document.getElementById('clienteIngeniero').innerText = maxIng;
-            document.getElementById('clienteTipoServicio').innerText = maxTipo;
+            const maxIng = Object.keys(ingenieros).length > 0 ? Object.keys(ingenieros).reduce((a, b) => ingenieros[a] > ingenieros[b] ? a : b) : 'N/A';
+            const maxTipo = Object.keys(tipos).length > 0 ? Object.keys(tipos).reduce((a, b) => tipos[a] > tipos[b] ? a : b) : 'N/A';
+
+            const elIng = document.getElementById('clienteIngeniero');
+            elIng.innerText = maxIng; elIng.title = maxIng;
+            const elTipo = document.getElementById('clienteTipoServicio');
+            elTipo.innerText = maxTipo; elTipo.title = maxTipo;
 
             dataPreventivos = dataCliente.filter(d => d.esPrev);
             dataCorrectivos = dataCliente.filter(d => d.esCorr);
 
+            document.getElementById('clientePrevCount').innerText = dataPreventivos.length;
+            document.getElementById('clienteCorrCount').innerText = dataCorrectivos.length;
+
             const mesCorrSelect = document.getElementById('filtroMesCorr');
             mesCorrSelect.innerHTML = '<option value="todos">Todos los meses</option>';
             const mesesUnicosCorr = [...new Set(dataCorrectivos.map(d => d.Mes))].filter(m => m && m !== 'sin mes');
+            // Ordenar los meses cronológicamente
+            mesesUnicosCorr.sort((a, b) => MESES_ES.indexOf(a) - MESES_ES.indexOf(b));
             mesesUnicosCorr.forEach(m => {
-                let opt = document.createElement('option');
+                const opt = document.createElement('option');
                 opt.value = m; opt.innerText = m.charAt(0).toUpperCase() + m.slice(1);
                 mesCorrSelect.appendChild(opt);
             });
@@ -736,7 +947,7 @@
 
             renderTablaPreventivos();
             renderTablaCorrectivos();
-            cambiarPestana('prev'); 
+            cambiarPestana('prev');
         }
 
         function cambiarPestana(tab) {
@@ -745,7 +956,7 @@
             const cPrev = document.getElementById('contentPrev');
             const cCorr = document.getElementById('contentCorr');
 
-            if(tab === 'prev') {
+            if (tab === 'prev') {
                 tPrev.className = "py-4 px-2 text-sm focus:outline-none tab-active transition-colors";
                 tCorr.className = "py-4 px-2 text-sm focus:outline-none tab-inactive transition-colors hover:text-slate-800";
                 cPrev.style.display = 'block';
@@ -758,27 +969,46 @@
             }
         }
 
-        // Exportar a CSV (Para abrir en Google Sheets)
-        function exportarCSVPrev() {
-            const textoBusqueda = document.getElementById('filtroTextoPrev').value.toLowerCase();
+        /* ============================================================
+           TABLA DE PREVENTIVOS
+           ============================================================ */
+        function obtenerPreventivosFiltrados() {
+            const textoBusqueda = normalizar(document.getElementById('filtroTextoPrev').value.toLowerCase());
             const mesPruebas = document.getElementById('filtroMesPrev').value;
-            let filtrados = dataPreventivos.filter(d => {
-                let coincideTexto = d.Equipo.toLowerCase().includes(textoBusqueda) || d.Marca.toLowerCase().includes(textoBusqueda) || d.Serie.toLowerCase().includes(textoBusqueda) || d.Modelo.toLowerCase().includes(textoBusqueda);
-                let coincideMes = mesPruebas === 'todos' || d.MesProximoMant.toString() === mesPruebas;
+
+            const filtrados = dataPreventivos.filter(d => {
+                const blob = normalizar((d.Equipo + ' ' + d.Marca + ' ' + d.Serie + ' ' + d.Modelo + ' ' + d.Inventario + ' ' + d.Area).toLowerCase());
+                const coincideTexto = !textoBusqueda || blob.includes(textoBusqueda);
+                const coincideMes = mesPruebas === 'todos' || d.MesProximoMant.toString() === mesPruebas;
                 return coincideTexto && coincideMes;
             });
 
-            if(filtrados.length === 0) return alert("No hay datos para exportar");
+            // MEJORA: ordenar por próximo mantenimiento (los sin fecha al final)
+            filtrados.sort((a, b) => {
+                if (!a.ProximoMantDate && !b.ProximoMantDate) return 0;
+                if (!a.ProximoMantDate) return 1;
+                if (!b.ProximoMantDate) return -1;
+                return a.ProximoMantDate - b.ProximoMantDate;
+            });
+            return filtrados;
+        }
 
+        // FIX: CSV con todos los campos escapados (comillas dobles internas)
+        function exportarCSVPrev() {
+            const filtrados = obtenerPreventivosFiltrados();
+            if (filtrados.length === 0) return alert("No hay datos para exportar");
+
+            const campo = (v) => '"' + String(v ?? '').replace(/"/g, '""') + '"';
             let csv = "\uFEFFEquipo,Marca,Modelo,Serie,Inventario,Area,Fecha Ejecucion,Proximo Mantenimiento\n";
             filtrados.forEach(d => {
-                csv += `"${d.Equipo}","${d.Marca}","${d.Modelo}","${d.Serie}","${d.Inventario}","${d.Area}","${d.FechaEjecucionStr}","${d.ProximoMantStr}"\n`;
+                csv += [d.Equipo, d.Marca, d.Modelo, d.Serie, d.Inventario, d.Area, d.FechaEjecucionStr, d.ProximoMantStr].map(campo).join(',') + "\n";
             });
             const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement("a");
             link.href = URL.createObjectURL(blob);
             link.download = `Mantenimientos_Preventivos_${clienteActual.replace(/\s+/g, '_')}.csv`;
             link.click();
+            URL.revokeObjectURL(link.href);
         }
 
         function imprimirTablaPrev() {
@@ -788,41 +1018,37 @@
         function renderTablaPreventivos() {
             const tbody = document.getElementById('tablaPreventivos');
             tbody.innerHTML = '';
-            
-            const textoBusqueda = document.getElementById('filtroTextoPrev').value.toLowerCase();
-            const mesPruebas = document.getElementById('filtroMesPrev').value;
 
-            let filtrados = dataPreventivos.filter(d => {
-                let coincideTexto = d.Equipo.toLowerCase().includes(textoBusqueda) || 
-                                    d.Marca.toLowerCase().includes(textoBusqueda) ||
-                                    d.Serie.toLowerCase().includes(textoBusqueda) ||
-                                    d.Modelo.toLowerCase().includes(textoBusqueda);
-                let coincideMes = mesPruebas === 'todos' || d.MesProximoMant.toString() === mesPruebas;
-                return coincideTexto && coincideMes;
-            });
+            const filtrados = obtenerPreventivosFiltrados();
+            document.getElementById('contadorPrev').innerText = filtrados.length + ' de ' + dataPreventivos.length + ' registros';
 
-            if(filtrados.length === 0) {
+            if (filtrados.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-8 text-center text-slate-500">No hay mantenimientos preventivos que coincidan con la búsqueda.</td></tr>`;
                 return;
             }
 
+            const hoy = new Date();
             filtrados.forEach(d => {
+                // MEJORA: alerta visual de mantenimiento vencido
+                const vencido = d.ProximoMantDate && d.ProximoMantDate < hoy;
+                const badgeVencido = vencido ? '<span class="ml-2 bg-red-100 text-red-700 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">Vencido</span>' : '';
+
                 const tr = document.createElement('tr');
                 tr.className = 'hover:bg-slate-50 transition-colors';
                 tr.innerHTML = `
                     <td class="px-4 py-3">
-                        <div class="font-semibold text-slate-800">${d.Equipo}</div>
-                        <div class="text-xs text-slate-500">${d.Marca} / ${d.Modelo}</div>
+                        <div class="font-semibold text-slate-800">${esc(d.Equipo)}</div>
+                        <div class="text-xs text-slate-500">${esc(d.Marca)} / ${esc(d.Modelo)}</div>
                     </td>
                     <td class="px-4 py-3">
-                        <div class="text-slate-800">${d.Serie}</div>
-                        <div class="text-xs text-slate-500">Inv: ${d.Inventario}</div>
+                        <div class="text-slate-800">${esc(d.Serie)}</div>
+                        <div class="text-xs text-slate-500">Inv: ${esc(d.Inventario)}</div>
                     </td>
-                    <td class="px-4 py-3 text-slate-600">${d.Area}</td>
-                    <td class="px-4 py-3 text-slate-600">${d.FechaEjecucionStr}</td>
-                    <td class="px-4 py-3 font-bold text-brand-600">${d.ProximoMantStr}</td>
+                    <td class="px-4 py-3 text-slate-600">${esc(d.Area)}</td>
+                    <td class="px-4 py-3 text-slate-600">${esc(d.FechaEjecucionStr)}</td>
+                    <td class="px-4 py-3 font-bold ${vencido ? 'text-red-600' : 'text-brand-600'}">${esc(d.ProximoMantStr)}${badgeVencido}</td>
                     <td class="px-4 py-3 text-right no-print">
-                        <button onclick="abrirRutina('${d.ID}')" class="text-brand-600 hover:text-brand-800 hover:bg-brand-50 px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors border border-transparent hover:border-brand-200 shadow-sm bg-white">
+                        <button data-id="${esc(d.ID)}" class="btn-rutina text-brand-600 hover:text-brand-800 hover:bg-brand-50 px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors border border-transparent hover:border-brand-200 shadow-sm bg-white">
                             Generar Rutina
                         </button>
                     </td>
@@ -831,22 +1057,75 @@
             });
         }
 
+        // FIX: delegación de eventos en vez de onclick inline (evita romperse con
+        // comillas u otros caracteres en el ID)
+        document.getElementById('tablaPreventivos').addEventListener('click', (e) => {
+            const btn = e.target.closest('button.btn-rutina');
+            if (btn) abrirRutina(btn.dataset.id);
+        });
+
+        /* ============================================================
+           PARSER ESTRUCTURADO DE MEDICIONES
+           El formato real de Jotform es:
+           "Medicion: X, Valor Programado: A, Valor Desplegado: B, Valor Medido: C ..."
+           Antes se extraían números sueltos (incluyendo el "2" de SPO2 o el
+           "20" de cmH20), lo cual generaba tablas y gráficas incorrectas.
+           ============================================================ */
+        function extraerCampoMedicion(segmento, campo) {
+            const re = new RegExp('valor\\s+' + campo + '\\s*:\\s*([\\s\\S]*?)(?=,?\\s*valor\\s+(?:programado|desplegado|medido)\\s*:|$)', 'i');
+            const m = normalizar(segmento).match(re);
+            if (!m) return '';
+            return m[1].replace(/^[,\s]+|[,\s]+$/g, '');
+        }
+
+        // Convierte "0.3 A", "128,4" o "85" a número; rechaza compuestos como "120/80" o "1:2"
+        function aNumeroMedicion(v) {
+            const s = String(v ?? '').trim();
+            if (!s || s.includes('/') || s.includes(':')) return null;
+            const m = s.replace(',', '.').match(/-?\d+(\.\d+)?/);
+            return m ? parseFloat(m[0]) : null;
+        }
+
+        function parsearMediciones(texto) {
+            const partes = normalizar(texto).split(/medicion\s*:/i);
+            if (partes.length < 2) return null;
+            const originalPartes = texto.split(/medici[oó]n\s*:/i);
+
+            const filas = [];
+            for (let i = 1; i < partes.length; i++) {
+                const segNorm = partes[i];
+                const segOrig = originalPartes[i] || segNorm;
+                let nombre = segOrig.split(/,?\s*valor\s+programado/i)[0] || '';
+                nombre = nombre.replace(/[,\s]+$/, '').trim();
+                filas.push({
+                    nombre: nombre || ('Parámetro ' + i),
+                    programado: extraerCampoMedicion(segOrig, 'programado'),
+                    desplegado: extraerCampoMedicion(segOrig, 'desplegado'),
+                    medido: extraerCampoMedicion(segOrig, 'medido')
+                });
+            }
+            return filas.length > 0 ? filas : null;
+        }
+
+        /* ============================================================
+           MODAL DE RUTINA
+           ============================================================ */
         function abrirRutina(id) {
             const eq = dataPreventivos.find(d => d.ID === id);
-            if(!eq) return;
+            if (!eq) return;
 
             const modal = document.getElementById('modalRutina');
-            document.body.classList.add('printing-modal'); // Ayuda al CSS de impresion
-            
-            // Llenar Datos Principales
+            document.body.classList.add('printing-modal');
+
             document.getElementById('rutFecha').innerText = eq.FechaEjecucionStr !== 'Sin Fecha Registrada' ? eq.FechaEjecucionStr : new Date().toLocaleDateString('es-MX');
-            document.getElementById('rutFolio').innerText = eq.ID !== 'S/N' ? eq.ID : "RUT-" + Math.floor(Math.random()*10000);
-            
+            // FIX: el folio es siempre trazable al ID de la orden (antes: número aleatorio)
+            document.getElementById('rutFolio').innerText = (eq.ID && eq.ID !== 'S/N') ? eq.ID : 'SIN FOLIO';
+
             document.getElementById('rutCliente').innerText = clienteActual;
             document.getElementById('rutDir').innerText = document.getElementById('clienteDireccion').innerText;
             document.getElementById('rutTel').innerText = document.getElementById('clienteTelefono').innerText;
             document.getElementById('rutArea').innerText = eq.Area;
-            
+
             document.getElementById('rutEq').innerText = eq.Equipo;
             document.getElementById('rutMarca').innerText = eq.Marca;
             document.getElementById('rutModelo').innerText = eq.Modelo;
@@ -856,7 +1135,7 @@
             document.getElementById('rutProx').innerText = eq.ProximoMantStr;
             document.getElementById('rutEqCalibracion').innerText = eq.EquipoCalibracion;
 
-            // Generar Checklist Dinámico
+            // Checklist (FIX: sin pre-aprobar; el documento debe llenarse conscientemente)
             const rutActividades = document.getElementById('rutActividades');
             const actividadesEstandar = [
                 "Limpieza integral exterior e interior del equipo",
@@ -868,14 +1147,14 @@
                 "Pruebas de seguridad eléctrica",
                 "Calibración / Ajuste contra patrón de referencia"
             ];
-            
+
             let checklistHTML = '<table class="w-full text-sm text-left border-collapse border border-slate-200"><thead class="bg-slate-100"><tr><th class="border border-slate-200 p-2">Actividad a realizar</th><th class="border border-slate-200 p-2 text-center w-24">Aprobado</th><th class="border border-slate-200 p-2 text-center w-24">Rechazado</th><th class="border border-slate-200 p-2 text-center w-16">N/A</th></tr></thead><tbody>';
-            
+
             actividadesEstandar.forEach((act, i) => {
                 checklistHTML += `
                     <tr class="hover:bg-slate-50 transition-colors">
-                        <td class="border border-slate-200 p-2 font-medium text-slate-700">${act}</td>
-                        <td class="border border-slate-200 p-2 text-center"><input type="radio" name="chk_${i}" class="w-4 h-4 text-brand-600 focus:ring-brand-500 cursor-pointer" checked></td>
+                        <td class="border border-slate-200 p-2 font-medium text-slate-700">${esc(act)}</td>
+                        <td class="border border-slate-200 p-2 text-center"><input type="radio" name="chk_${i}" class="w-4 h-4 text-brand-600 focus:ring-brand-500 cursor-pointer"></td>
                         <td class="border border-slate-200 p-2 text-center"><input type="radio" name="chk_${i}" class="w-4 h-4 text-red-600 focus:ring-red-500 cursor-pointer"></td>
                         <td class="border border-slate-200 p-2 text-center"><input type="radio" name="chk_${i}" class="w-4 h-4 text-slate-400 focus:ring-slate-400 cursor-pointer"></td>
                     </tr>
@@ -884,146 +1163,173 @@
             checklistHTML += '</tbody></table>';
             rutActividades.innerHTML = checklistHTML;
 
-            // Procesar Gráfica de Error y Tabla de Valores
+            // ===== Sección V: Valores de Medición =====
             const valoresContainer = document.getElementById('rutinaValoresContainer');
             const textoMedicionEl = document.getElementById('rutinaTextoMedicion');
             const tablaContainer = document.getElementById('rutinaTablaContainer');
             const chartWrapper = document.getElementById('rutinaChartWrapper');
-            
-            if (chartRutinaObj) { chartRutinaObj.destroy(); chartRutinaObj = null; }
-            
-            let textMedicion = String(eq.ValoresMedicion || '').trim();
-            
-            if (textMedicion && textMedicion !== 'undefined' && textMedicion !== 'N/A' && textMedicion !== '') {
-                valoresContainer.style.display = 'block';
-                textoMedicionEl.innerHTML = `<span class="font-bold text-slate-900">Registro Original:</span> ${textMedicion}`;
-                
-                // Extraer números, incluyendo negativos y decimales
-                let nums = textMedicion.match(/-?\d+(\.\d+)?/g);
-                
-                if (nums && nums.length > 0) {
-                    chartWrapper.style.display = 'block';
-                    let labels = [];
-                    let nominals = [];
-                    let reales = [];
-                    let errors = [];
-                    let tablaHTML = '<table class="min-w-full text-sm text-left border-collapse"><thead class="bg-slate-800 text-white"><tr><th class="p-3 font-semibold rounded-tl-lg">Punto</th><th class="p-3 font-semibold">Nominal</th><th class="p-3 font-semibold">Real</th><th class="p-3 font-semibold text-center rounded-tr-lg">Variación / Error</th></tr></thead><tbody class="divide-y divide-slate-200 bg-white">';
-                    
-                    if (nums.length % 2 === 0 && nums.length >= 2) {
-                        // Asumimos pares (Nominal, Real)
-                        for(let i=0; i<nums.length; i+=2) {
-                            let nominal = parseFloat(nums[i]);
-                            let real = parseFloat(nums[i+1]);
-                            let error = parseFloat((real - nominal).toFixed(4));
-                            labels.push(`P${i/2 + 1}`);
-                            nominals.push(nominal);
-                            reales.push(real);
-                            errors.push(error);
-                            
-                            // Tolerancia del 10% para colorear en rojo el error
-                            let errorClass = Math.abs(error) > (Math.abs(nominal) * 0.1) ? 'text-red-600 font-bold bg-red-50' : 'text-slate-700';
-                            
-                            tablaHTML += `<tr class="hover:bg-slate-50 transition-colors"><td class="p-3 font-medium text-slate-800">Punto ${i/2 + 1}</td><td class="p-3">${nominal}</td><td class="p-3 font-semibold">${real}</td><td class="p-3 text-center ${errorClass}">${error > 0 ? '+'+error : error}</td></tr>`;
-                        }
-                    } else {
-                        // Solo valores individuales (sin nominal vs real)
-                        tablaHTML = '<table class="min-w-full text-sm text-left border-collapse"><thead class="bg-slate-800 text-white"><tr><th class="p-3 font-semibold rounded-tl-lg">Punto / Lectura</th><th class="p-3 font-semibold rounded-tr-lg">Valor Registrado</th></tr></thead><tbody class="divide-y divide-slate-200 bg-white">';
-                        for(let i=0; i<nums.length; i++) {
-                            let val = parseFloat(nums[i]);
-                            labels.push(`Lec ${i+1}`);
-                            reales.push(val);
-                            tablaHTML += `<tr class="hover:bg-slate-50 transition-colors"><td class="p-3 font-medium text-slate-800">Lectura ${i+1}</td><td class="p-3 font-semibold text-brand-700">${val}</td></tr>`;
-                        }
-                    }
-                    tablaHTML += '</tbody></table>';
-                    tablaContainer.innerHTML = tablaHTML;
-                    
-                    const ctx = document.getElementById('rutinaChart').getContext('2d');
-                    
-                    let datasets = [];
-                    if (nominals.length > 0) {
-                        datasets = [
-                            {
-                                label: 'Valor Nominal',
-                                data: nominals,
-                                borderColor: '#94a3b8',
-                                backgroundColor: '#94a3b8',
-                                borderDash: [5, 5],
-                                fill: false,
-                                tension: 0.1,
-                                yAxisID: 'y'
-                            },
-                            {
-                                label: 'Medición Real',
-                                data: reales,
-                                borderColor: '#3b82f6',
-                                backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                                fill: true,
-                                tension: 0.3,
-                                pointRadius: 4,
-                                yAxisID: 'y'
-                            },
-                            {
-                                type: 'bar',
-                                label: 'Margen de Error',
-                                data: errors,
-                                backgroundColor: errors.map(e => e > 0 ? 'rgba(239, 68, 68, 0.7)' : (e < 0 ? 'rgba(245, 158, 11, 0.7)' : 'rgba(16, 185, 129, 0.7)')),
-                                yAxisID: 'y1'
-                            }
-                        ];
-                    } else {
-                        datasets = [
-                            {
-                                label: 'Valores Registrados',
-                                data: reales,
-                                borderColor: '#14b8a6',
-                                backgroundColor: 'rgba(20, 184, 166, 0.2)',
-                                fill: true,
-                                tension: 0.3,
-                                pointRadius: 5
-                            }
-                        ];
-                    }
 
-                    chartRutinaObj = new Chart(ctx, {
-                        type: 'line',
-                        data: { labels: labels, datasets: datasets },
-                        options: { 
-                            responsive: true, 
-                            maintainAspectRatio: false,
-                            interaction: { mode: 'index', intersect: false },
-                            plugins: { 
-                                legend: { position: 'top', labels: { usePointStyle: true, boxWidth: 8, font: { size: 10 } } }, 
-                                datalabels: { display: false },
-                                tooltip: { backgroundColor: 'rgba(15, 23, 42, 0.9)' }
-                            },
-                            scales: { 
-                                y: { title: { display: true, text: 'Magnitud', font: { size: 10 } }, position: 'left' },
-                                ...(nominals.length > 0 && { y1: { type: 'linear', position: 'right', title: { display: true, text: 'Variación', font: { size: 10 } }, grid: { drawOnChartArea: false } } })
-                            }
+            if (chartRutinaObj) { chartRutinaObj.destroy(); chartRutinaObj = null; }
+
+            const textMedicion = String(eq.ValoresMedicion || '').trim();
+
+            if (textMedicion && textMedicion !== 'undefined' && textMedicion !== 'N/A') {
+                valoresContainer.style.display = 'block';
+                textoMedicionEl.innerHTML = `<span class="font-bold text-slate-900">Registro Original:</span> ${esc(textMedicion)}`;
+
+                const filas = parsearMediciones(textMedicion);
+
+                if (filas) {
+                    // ---- Formato estructurado de Jotform ----
+                    let tablaHTML = '<table class="min-w-full text-sm text-left border-collapse"><thead class="bg-slate-800 text-white"><tr><th class="p-3 font-semibold rounded-tl-lg">Parámetro</th><th class="p-3 font-semibold">Programado</th><th class="p-3 font-semibold">Desplegado</th><th class="p-3 font-semibold">Medido</th><th class="p-3 font-semibold text-center rounded-tr-lg">Error</th></tr></thead><tbody class="divide-y divide-slate-200 bg-white">';
+
+                    const labels = [], serieProg = [], serieReal = [], serieErr = [];
+                    let hayNumericos = false;
+
+                    filas.forEach((f, idx) => {
+                        const nProg = aNumeroMedicion(f.programado);
+                        const nDesp = aNumeroMedicion(f.desplegado);
+                        const nMed = aNumeroMedicion(f.medido);
+                        const nReal = (nMed !== null) ? nMed : nDesp;
+
+                        let errorTxt = '—';
+                        let errorClass = 'text-slate-400';
+                        if (nProg !== null && nReal !== null) {
+                            const err = parseFloat((nReal - nProg).toFixed(4));
+                            errorTxt = (err > 0 ? '+' : '') + err;
+                            // Tolerancia del 10% para resaltar en rojo
+                            errorClass = (nProg !== 0 && Math.abs(err) > Math.abs(nProg) * 0.1)
+                                ? 'text-red-600 font-bold bg-red-50' : 'text-slate-700';
+                        }
+
+                        tablaHTML += `<tr class="hover:bg-slate-50 transition-colors">
+                            <td class="p-3 font-medium text-slate-800">${esc(f.nombre)}</td>
+                            <td class="p-3">${esc(f.programado || '—')}</td>
+                            <td class="p-3">${esc(f.desplegado || '—')}</td>
+                            <td class="p-3 font-semibold">${esc(f.medido || '—')}</td>
+                            <td class="p-3 text-center ${errorClass}">${esc(errorTxt)}</td>
+                        </tr>`;
+
+                        if (nReal !== null) {
+                            hayNumericos = true;
+                            labels.push(f.nombre.length > 22 ? f.nombre.slice(0, 22) + '…' : f.nombre);
+                            serieProg.push(nProg);
+                            serieReal.push(nReal);
+                            serieErr.push((nProg !== null) ? parseFloat((nReal - nProg).toFixed(4)) : null);
                         }
                     });
+                    tablaHTML += '</tbody></table>';
+                    tablaContainer.innerHTML = tablaHTML;
+
+                    if (hayNumericos) {
+                        chartWrapper.style.display = 'block';
+                        const ctx = document.getElementById('rutinaChart').getContext('2d');
+                        const hayProg = serieProg.some(v => v !== null);
+
+                        const datasets = [];
+                        if (hayProg) {
+                            datasets.push({
+                                label: 'Valor Programado', data: serieProg,
+                                borderColor: '#94a3b8', backgroundColor: '#94a3b8',
+                                borderDash: [5, 5], fill: false, tension: 0.1, spanGaps: true, yAxisID: 'y'
+                            });
+                        }
+                        datasets.push({
+                            label: 'Valor Real (Medido/Desplegado)', data: serieReal,
+                            borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            fill: true, tension: 0.3, pointRadius: 4, spanGaps: true, yAxisID: 'y'
+                        });
+                        if (hayProg) {
+                            datasets.push({
+                                type: 'bar', label: 'Error', data: serieErr,
+                                backgroundColor: serieErr.map(e => e === null ? 'rgba(148,163,184,0.3)' : (e > 0 ? 'rgba(239, 68, 68, 0.7)' : (e < 0 ? 'rgba(245, 158, 11, 0.7)' : 'rgba(16, 185, 129, 0.7)'))),
+                                yAxisID: 'y1'
+                            });
+                        }
+
+                        chartRutinaObj = new Chart(ctx, {
+                            type: 'line',
+                            data: { labels: labels, datasets: datasets },
+                            options: {
+                                responsive: true, maintainAspectRatio: false,
+                                interaction: { mode: 'index', intersect: false },
+                                plugins: {
+                                    legend: { position: 'top', labels: { usePointStyle: true, boxWidth: 8, font: { size: 10 } } },
+                                    datalabels: { display: false },
+                                    tooltip: { backgroundColor: 'rgba(15, 23, 42, 0.9)' }
+                                },
+                                scales: {
+                                    x: { ticks: { font: { size: 9 }, maxRotation: 60 } },
+                                    y: { title: { display: true, text: 'Magnitud', font: { size: 10 } }, position: 'left' },
+                                    ...(hayProg && { y1: { type: 'linear', position: 'right', title: { display: true, text: 'Error', font: { size: 10 } }, grid: { drawOnChartArea: false } } })
+                                }
+                            }
+                        });
+                    } else {
+                        chartWrapper.style.display = 'none';
+                    }
                 } else {
-                    tablaContainer.innerHTML = '<p class="text-xs text-slate-500 italic p-3 bg-slate-50 rounded-lg border border-slate-200">El registro no contiene valores numéricos estructurados para generar tabla dinámica.</p>';
-                    chartWrapper.style.display = 'none';
+                    // ---- Fallback: texto libre sin el formato "Medicion:" ----
+                    const nums = textMedicion.match(/-?\d+(\.\d+)?/g);
+                    if (nums && nums.length > 0) {
+                        chartWrapper.style.display = 'block';
+                        const labels = [], reales = [];
+                        let tablaHTML = '<table class="min-w-full text-sm text-left border-collapse"><thead class="bg-slate-800 text-white"><tr><th class="p-3 font-semibold rounded-tl-lg">Lectura</th><th class="p-3 font-semibold rounded-tr-lg">Valor Registrado</th></tr></thead><tbody class="divide-y divide-slate-200 bg-white">';
+                        nums.forEach((n, i) => {
+                            const val = parseFloat(n);
+                            labels.push('Lec ' + (i + 1));
+                            reales.push(val);
+                            tablaHTML += `<tr class="hover:bg-slate-50 transition-colors"><td class="p-3 font-medium text-slate-800">Lectura ${i + 1}</td><td class="p-3 font-semibold text-brand-700">${val}</td></tr>`;
+                        });
+                        tablaHTML += '</tbody></table>';
+                        tablaContainer.innerHTML = tablaHTML;
+
+                        const ctx = document.getElementById('rutinaChart').getContext('2d');
+                        chartRutinaObj = new Chart(ctx, {
+                            type: 'line',
+                            data: { labels: labels, datasets: [{ label: 'Valores Registrados', data: reales, borderColor: '#14b8a6', backgroundColor: 'rgba(20, 184, 166, 0.2)', fill: true, tension: 0.3, pointRadius: 5 }] },
+                            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' }, datalabels: { display: false } } }
+                        });
+                    } else {
+                        tablaContainer.innerHTML = '<p class="text-xs text-slate-500 italic p-3 bg-slate-50 rounded-lg border border-slate-200">El registro no contiene valores numéricos estructurados para generar tabla dinámica.</p>';
+                        chartWrapper.style.display = 'none';
+                    }
                 }
             } else {
                 valoresContainer.style.display = 'none';
             }
 
-            // Procesar Fotos desde Google Drive
+            // ===== Sección VI: Evidencia fotográfica (FIX: 4 columnas de Jotform) =====
             const fotosContainer = document.getElementById('rutinaFotos');
             const fotosWrapper = document.getElementById('rutinaFotosContainer');
-            if (eq.Archivos && eq.Archivos.trim() !== '') {
-                let links = eq.Archivos.split(',');
-                let imgHtml = links.map(link => {
-                    link = link.trim();
-                    if(!link) return '';
-                    let idMatch = link.match(/id=([^&]+)/) || link.match(/\/d\/([a-zA-Z0-9_-]+)/);
-                    let src = idMatch ? `https://drive.google.com/uc?id=${idMatch[1]}` : link;
-                    return `<img src="${src}" class="h-48 w-48 object-cover rounded-lg shadow-sm border border-slate-200" onerror="this.style.display='none'">`;
-                }).join('');
-                fotosContainer.innerHTML = imgHtml;
+            fotosContainer.innerHTML = '';
+            if (eq.Fotos && eq.Fotos.length > 0) {
+                eq.Fotos.forEach(f => {
+                    const fig = document.createElement('figure');
+                    fig.className = 'flex flex-col items-center gap-1';
+
+                    const img = document.createElement('img');
+                    img.src = f.url;
+                    img.alt = f.etiqueta;
+                    img.className = 'h-48 w-48 object-cover rounded-lg shadow-sm border border-slate-200 bg-slate-100';
+                    img.loading = 'lazy';
+                    // Si la imagen no carga (p.ej. Jotform requiere sesión) se ofrece el enlace
+                    img.addEventListener('error', () => {
+                        const a = document.createElement('a');
+                        a.href = f.url; a.target = '_blank'; a.rel = 'noopener';
+                        a.className = 'h-48 w-48 flex items-center justify-center text-center text-xs text-brand-600 underline border border-dashed border-slate-300 rounded-lg p-3 bg-slate-50';
+                        a.innerText = 'Ver foto "' + f.etiqueta + '" (requiere acceso a Jotform)';
+                        img.replaceWith(a);
+                    });
+
+                    const cap = document.createElement('figcaption');
+                    cap.className = 'text-xs font-semibold text-slate-500 uppercase';
+                    cap.innerText = f.etiqueta;
+
+                    fig.appendChild(img);
+                    fig.appendChild(cap);
+                    fotosContainer.appendChild(fig);
+                });
                 fotosWrapper.style.display = 'block';
             } else {
                 fotosWrapper.style.display = 'none';
@@ -1039,20 +1345,46 @@
             document.getElementById('modalRutina').classList.remove('flex');
         }
 
+        // FIX impresión: se reemplaza el canvas por una imagen estática antes de
+        // imprimir (los canvas de Chart.js a veces salen en blanco o borrosos)
+        function prepararCanvasImpresion() {
+            document.querySelectorAll('canvas').forEach(cv => {
+                try {
+                    const img = document.createElement('img');
+                    img.src = cv.toDataURL('image/png', 1.0);
+                    img.className = 'print-canvas-img';
+                    img.style.width = '100%';
+                    img.style.height = '100%';
+                    img.style.objectFit = 'contain';
+                    cv.style.display = 'none';
+                    cv.parentNode.insertBefore(img, cv);
+                } catch (e) { /* canvas vacío */ }
+            });
+        }
+        function restaurarCanvasImpresion() {
+            document.querySelectorAll('img.print-canvas-img').forEach(img => img.remove());
+            document.querySelectorAll('canvas').forEach(cv => { cv.style.display = ''; });
+        }
+        window.addEventListener('beforeprint', prepararCanvasImpresion);
+        window.addEventListener('afterprint', restaurarCanvasImpresion);
+
         function imprimirRutina() {
             window.print();
         }
 
+        /* ============================================================
+           TABLA DE CORRECTIVOS
+           ============================================================ */
         function renderTablaCorrectivos() {
             const tbody = document.getElementById('tablaCorrectivos');
             tbody.innerHTML = '';
-            
+
             const mesCorr = document.getElementById('filtroMesCorr').value;
+            const filtrados = dataCorrectivos.filter(d => mesCorr === 'todos' || d.Mes === mesCorr);
+            document.getElementById('contadorCorr').innerText = filtrados.length + ' de ' + dataCorrectivos.length + ' registros';
 
-            let filtrados = dataCorrectivos.filter(d => mesCorr === 'todos' || d.Mes === mesCorr);
-
-            if(filtrados.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-8 text-center text-slate-500">No hay mantenimientos correctivos en el periodo seleccionado.</td></tr>`;
+            if (filtrados.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-8 text-center text-slate-500">No hay mantenimientos correctivos en el periodo seleccionado.</td></tr>`;
                 return;
             }
 
@@ -1060,11 +1392,12 @@
                 const tr = document.createElement('tr');
                 tr.className = 'hover:bg-slate-50 transition-colors';
                 tr.innerHTML = `
-                    <td class="px-4 py-3 font-bold text-slate-700 whitespace-nowrap">${d.ID}</td>
-                    <td class="px-4 py-3 text-slate-800 font-medium">${d.Equipo}</td>
-                    <td class="px-4 py-3 text-slate-600">${d.Marca} / ${d.Modelo}</td>
-                    <td class="px-4 py-3 text-slate-600">${d.Serie}</td>
-                    <td class="px-4 py-3 text-slate-600">${d.FechaEjecucionStr}</td>
+                    <td class="px-4 py-3 font-bold text-slate-700 whitespace-nowrap">${esc(d.ID)}</td>
+                    <td class="px-4 py-3 text-slate-800 font-medium">${esc(d.Equipo)}</td>
+                    <td class="px-4 py-3 text-slate-600">${esc(d.Marca)} / ${esc(d.Modelo)}</td>
+                    <td class="px-4 py-3 text-slate-600">${esc(d.Serie)}</td>
+                    <td class="px-4 py-3 text-slate-500 text-xs">${esc(d['Tipo de Servicio'])}</td>
+                    <td class="px-4 py-3 text-slate-600">${esc(d.FechaEjecucionStr)}</td>
                 `;
                 tbody.appendChild(tr);
             });
@@ -1073,17 +1406,23 @@
         document.getElementById('filtroTextoPrev').addEventListener('input', renderTablaPreventivos);
         document.getElementById('filtroMesPrev').addEventListener('change', renderTablaPreventivos);
         document.getElementById('filtroMesCorr').addEventListener('change', renderTablaCorrectivos);
+        document.getElementById('buscadorClientes').addEventListener('input', (e) => generarSidebarClientes(e.target.value));
+        document.getElementById('btnSidebarToggle').addEventListener('click', toggleSidebar);
+        document.getElementById('sidebarOverlay').addEventListener('click', toggleSidebar);
 
+        /* ============================================================
+           DASHBOARD GENERAL
+           ============================================================ */
         const parsePercent = (val) => {
             if (!val) return 0;
             if (typeof val === 'number') return val;
-            let num = parseFloat(val.replace(/%/g, '').trim());
+            const num = parseFloat(val.replace(/%/g, '').trim());
             return isNaN(num) ? 0 : num;
         };
 
         const formatearKPI = (valor, esPorcentaje = false) => {
-             if (esPorcentaje) return valor.toFixed(1) + '%';
-             return valor.toFixed(1);
+            if (esPorcentaje) return valor.toFixed(1) + '%';
+            return valor.toFixed(1);
         };
 
         function renderizarDashboard(filtroMes) {
@@ -1098,7 +1437,7 @@
             if (datosFiltradosKPI.length > 0) {
                 datosFiltradosKPI.forEach(d => {
                     sumPrev += parsePercent(d.ratio_preventivo);
-                    sumCorr += parsePercent(d.ratio_corectivo || d.ratio_correctivo); 
+                    sumCorr += parsePercent(d.ratio_corectivo || d.ratio_correctivo);
                     sumMTTR += Number(d.mttr) || 0;
                     sumEntrega += parsePercent(d.tasa_entrega);
                     sumRefac += parsePercent(d.tasa_refacciones);
@@ -1106,10 +1445,12 @@
                     kpiTotalItems++;
                 });
 
-                let divisorPromedio = filtroMes === 'todos' ? kpiTotalItems : 1;
+                // FIX: se promedia siempre entre el número de filas sumadas
+                // (antes, con filtro de mes se dividía entre 1 aunque hubiera varias filas)
+                const divisorPromedio = Math.max(kpiTotalItems, 1);
 
-                const setVal = (id, val) => { if(document.getElementById(id)) document.getElementById(id).innerText = val; };
-                
+                const setVal = (id, val) => { if (document.getElementById(id)) document.getElementById(id).innerText = val; };
+
                 setVal('kpi-prev', formatearKPI(sumPrev / divisorPromedio, true));
                 setVal('kpi-corr', formatearKPI(sumCorr / divisorPromedio, true));
                 setVal('kpi-mttr', formatearKPI(sumMTTR / divisorPromedio, false));
@@ -1118,18 +1459,19 @@
                 setVal('kpi-fallas', formatearKPI(sumFallas / divisorPromedio, true));
 
             } else {
-                 document.querySelectorAll('[id^="kpi-"]').forEach(el => {
-                     if(!el.id.includes('ventas')) el.innerText = el.id.includes('mttr') ? '0' : '0%';
-                 });
+                document.querySelectorAll('[id^="kpi-"]').forEach(el => {
+                    if (!el.id.includes('ventas')) el.innerText = el.id.includes('mttr') ? '0' : '0%';
+                });
             }
 
+            // FIX: ahora el filtro por mes funciona porque Mes se deriva de la fecha
             let datosFiltradosCorpus = datosDetalleOrdenes;
             if (filtroMes !== 'todos') {
                 datosFiltradosCorpus = datosDetalleOrdenes.filter(item => item.Mes === filtroMes);
             }
 
             const conteoVentasReales = datosFiltradosCorpus.filter(d => d.oportunidad).length;
-            if(document.getElementById('kpi-ventas')) document.getElementById('kpi-ventas').innerText = conteoVentasReales;
+            if (document.getElementById('kpi-ventas')) document.getElementById('kpi-ventas').innerText = conteoVentasReales;
 
             let cargaMap = {}, tiposMap = {}, clientesMap = {}, marcasMap = {};
             let countGarantia = 0, countContrato = 0, countFuera = 0, countPrueba = 0;
@@ -1142,24 +1484,24 @@
                     if (d.estatus_seguimiento_limpio.includes('PRUEBA') || d.estatus_seguimiento_limpio.includes('8 DIAS')) countPrueba++;
                 }
 
-                if(d.Ingeniero && d.Ingeniero !== 'Sin Asignar') {
+                if (d.Ingeniero && d.Ingeniero !== 'Sin Asignar') {
                     cargaMap[d.Ingeniero] = (cargaMap[d.Ingeniero] || 0) + 1;
                 }
-                
-                if(d['Tipo de Servicio']) tiposMap[d['Tipo de Servicio']] = (tiposMap[d['Tipo de Servicio']] || 0) + 1;
+
+                if (d['Tipo de Servicio']) tiposMap[d['Tipo de Servicio']] = (tiposMap[d['Tipo de Servicio']] || 0) + 1;
                 clientesMap[d.Cliente] = (clientesMap[d.Cliente] || 0) + 1;
                 marcasMap[d.Marca] = (marcasMap[d.Marca] || 0) + 1;
             });
 
-            if(document.getElementById('ind-garantia')) document.getElementById('ind-garantia').innerText = countGarantia;
-            if(document.getElementById('ind-contrato')) document.getElementById('ind-contrato').innerText = countContrato;
-            if(document.getElementById('ind-fuera')) document.getElementById('ind-fuera').innerText = countFuera;
-            if(document.getElementById('ind-prueba')) document.getElementById('ind-prueba').innerText = countPrueba;
+            if (document.getElementById('ind-garantia')) document.getElementById('ind-garantia').innerText = countGarantia;
+            if (document.getElementById('ind-contrato')) document.getElementById('ind-contrato').innerText = countContrato;
+            if (document.getElementById('ind-fuera')) document.getElementById('ind-fuera').innerText = countFuera;
+            if (document.getElementById('ind-prueba')) document.getElementById('ind-prueba').innerText = countPrueba;
 
             actualizarGraficas(cargaMap, tiposMap, clientesMap, marcasMap);
-            
+
             const btnCard = document.getElementById('card-ventas');
-            if(btnCard) {
+            if (btnCard) {
                 const newBtnCard = btnCard.cloneNode(true);
                 btnCard.parentNode.replaceChild(newBtnCard, btnCard);
                 newBtnCard.addEventListener('click', () => {
@@ -1173,11 +1515,11 @@
                             const tr = document.createElement('tr');
                             tr.classList.add('hover:bg-slate-50', 'transition-colors');
                             tr.innerHTML = `
-                                <td class="px-4 py-3 font-bold text-brand-600 whitespace-nowrap">${op.ID}</td>
-                                <td class="px-4 py-3 text-slate-800 font-medium">${op.Cliente}</td>
-                                <td class="px-4 py-3 text-slate-500">${op.Equipo}</td>
-                                <td class="px-4 py-3"><span class="bg-slate-100 text-slate-600 px-2 py-1 rounded-md text-xs font-bold border border-slate-200">${op.Ingeniero}</span></td>
-                                <td class="px-4 py-3 text-xs text-slate-500 italic whitespace-normal min-w-[250px] break-words">${op.motivo_venta}</td>
+                                <td class="px-4 py-3 font-bold text-brand-600 whitespace-nowrap">${esc(op.ID)}</td>
+                                <td class="px-4 py-3 text-slate-800 font-medium">${esc(op.Cliente)}</td>
+                                <td class="px-4 py-3 text-slate-500">${esc(op.Equipo)}</td>
+                                <td class="px-4 py-3"><span class="bg-slate-100 text-slate-600 px-2 py-1 rounded-md text-xs font-bold border border-slate-200">${esc(op.Ingeniero)}</span></td>
+                                <td class="px-4 py-3 text-xs text-slate-500 italic whitespace-normal min-w-[250px] break-words">${esc(op.motivo_venta)}</td>
                             `;
                             tbody.appendChild(tr);
                         });
@@ -1192,12 +1534,12 @@
             Chart.defaults.font.family = "'Inter', sans-serif";
 
             const toData = (objMap) => {
-                let arr = Object.entries(objMap).sort((a, b) => b[1] - a[1]).slice(0, 10);
+                const arr = Object.entries(objMap).sort((a, b) => b[1] - a[1]).slice(0, 10);
                 return { labels: arr.map(i => i[0]), data: arr.map(i => i[1]) };
             };
 
             const datosCarga = toData(carga);
-            if(document.getElementById('chartCargaTrabajo')) {
+            if (document.getElementById('chartCargaTrabajo')) {
                 charts.carga = new Chart(document.getElementById('chartCargaTrabajo'), {
                     type: 'bar',
                     data: { labels: datosCarga.labels, datasets: [{ data: datosCarga.data, backgroundColor: '#14b8a6', borderRadius: 4 }] },
@@ -1205,31 +1547,28 @@
                 });
             }
 
-            if(document.getElementById('chartTipos')) {
+            if (document.getElementById('chartTipos')) {
                 charts.tipos = new Chart(document.getElementById('chartTipos'), {
                     type: 'doughnut',
                     data: { labels: Object.keys(tipos), datasets: [{ data: Object.values(tipos), backgroundColor: palette }] },
-                    options: { 
-                        responsive: true, maintainAspectRatio: false, cutout: '50%', 
-                        plugins: { 
+                    options: {
+                        responsive: true, maintainAspectRatio: false, cutout: '50%',
+                        plugins: {
                             legend: { position: 'right' },
                             datalabels: {
                                 color: '#ffffff', font: { weight: 'bold' },
                                 formatter: (value, ctx) => {
-                                    let datasets = ctx.chart.data.datasets;
-                                    if (datasets.indexOf(ctx.dataset) === datasets.length - 1) {
-                                        let sum = 0; datasets[0].data.map(data => { sum += data; });
-                                        return Math.round((value / sum) * 100) + '%';
-                                    } else { return value; }
+                                    const total = ctx.dataset.data.reduce((a, b) => a + (Number(b) || 0), 0);
+                                    return total > 0 ? Math.round((value / total) * 100) + '%' : value;
                                 }
                             }
-                        } 
+                        }
                     }
                 });
             }
 
             const datosCl = toData(clientes);
-            if(document.getElementById('chartClientes')) {
+            if (document.getElementById('chartClientes')) {
                 charts.clientes = new Chart(document.getElementById('chartClientes'), {
                     type: 'bar',
                     data: { labels: datosCl.labels, datasets: [{ data: datosCl.data, backgroundColor: '#3b82f6', borderRadius: 4 }] },
@@ -1238,7 +1577,7 @@
             }
 
             const datosMc = toData(marcas);
-            if(document.getElementById('chartMarcas')) {
+            if (document.getElementById('chartMarcas')) {
                 charts.marcas = new Chart(document.getElementById('chartMarcas'), {
                     type: 'bar',
                     data: { labels: datosMc.labels, datasets: [{ data: datosMc.data, backgroundColor: '#8b5cf6', borderRadius: 4 }] },
@@ -1247,17 +1586,17 @@
             }
         }
 
-        if(document.getElementById('cerrarModal')) {
+        if (document.getElementById('cerrarModal')) {
             document.getElementById('cerrarModal').addEventListener('click', () => {
                 document.getElementById('modalOportunidades').classList.add('hidden');
             });
         }
-        
-        if(document.getElementById('monthFilter')) {
+
+        if (document.getElementById('monthFilter')) {
             document.getElementById('monthFilter').addEventListener('change', (e) => renderizarDashboard(e.target.value));
         }
-        
-        if(document.getElementById('btnAnual')) {
+
+        if (document.getElementById('btnAnual')) {
             document.getElementById('btnAnual').addEventListener('click', () => {
                 document.getElementById('monthFilter').value = 'todos';
                 renderizarDashboard('todos');
