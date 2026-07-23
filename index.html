@@ -325,6 +325,12 @@
                             <div class="flex flex-wrap items-center gap-3 w-full xl:w-auto justify-end">
                                 <span id="contadorPrev" class="text-xs font-semibold text-slate-400"></span>
                                 <div class="flex items-center gap-2">
+                                    <label class="text-xs font-semibold text-slate-500 uppercase whitespace-nowrap">Mes Ejecución:</label>
+                                    <select id="filtroMesEjecPrev" class="p-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-brand-500 outline-none">
+                                        <option value="todos">Todos</option>
+                                    </select>
+                                </div>
+                                <div class="flex items-center gap-2">
                                     <label class="text-xs font-semibold text-slate-500 uppercase whitespace-nowrap">Mes Próx. Mant:</label>
                                     <select id="filtroMesPrev" class="p-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-brand-500 outline-none">
                                         <option value="todos">Todos</option>
@@ -348,6 +354,7 @@
                             <table class="min-w-full divide-y divide-slate-200">
                                 <thead class="bg-slate-50">
                                     <tr>
+                                        <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Orden (ID)</th>
                                         <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Equipo / Marca / Modelo</th>
                                         <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">No. Serie / Inventario</th>
                                         <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Área</th>
@@ -982,7 +989,20 @@
                 mesCorrSelect.appendChild(opt);
             });
 
+            // Poblar el filtro de mes de ejecución de preventivos con los meses
+            // realmente presentes en los datos del cliente
+            const mesEjecSelect = document.getElementById('filtroMesEjecPrev');
+            mesEjecSelect.innerHTML = '<option value="todos">Todos</option>';
+            const mesesUnicosPrev = [...new Set(dataPreventivos.map(d => d.Mes))].filter(m => m && m !== 'sin mes');
+            mesesUnicosPrev.sort((a, b) => MESES_ES.indexOf(a) - MESES_ES.indexOf(b));
+            mesesUnicosPrev.forEach(m => {
+                const opt = document.createElement('option');
+                opt.value = m; opt.innerText = m.charAt(0).toUpperCase() + m.slice(1);
+                mesEjecSelect.appendChild(opt);
+            });
+
             document.getElementById('filtroTextoPrev').value = '';
+            document.getElementById('filtroMesEjecPrev').value = 'todos';
             document.getElementById('filtroMesPrev').value = 'todos';
             document.getElementById('filtroMesCorr').value = 'todos';
 
@@ -1015,13 +1035,15 @@
            ============================================================ */
         function obtenerPreventivosFiltrados() {
             const textoBusqueda = normalizar(document.getElementById('filtroTextoPrev').value.toLowerCase());
+            const mesEjec = document.getElementById('filtroMesEjecPrev').value;
             const mesPruebas = document.getElementById('filtroMesPrev').value;
 
             const filtrados = dataPreventivos.filter(d => {
-                const blob = normalizar((d.Equipo + ' ' + d.Marca + ' ' + d.Serie + ' ' + d.Modelo + ' ' + d.Inventario + ' ' + d.Area).toLowerCase());
+                const blob = normalizar((d.ID + ' ' + d.Equipo + ' ' + d.Marca + ' ' + d.Serie + ' ' + d.Modelo + ' ' + d.Inventario + ' ' + d.Area).toLowerCase());
                 const coincideTexto = !textoBusqueda || blob.includes(textoBusqueda);
+                const coincideMesEjec = mesEjec === 'todos' || d.Mes === mesEjec;
                 const coincideMes = mesPruebas === 'todos' || d.MesProximoMant.toString() === mesPruebas;
-                return coincideTexto && coincideMes;
+                return coincideTexto && coincideMesEjec && coincideMes;
             });
 
             // MEJORA: ordenar por próximo mantenimiento (los sin fecha al final)
@@ -1040,9 +1062,9 @@
             if (filtrados.length === 0) return alert("No hay datos para exportar");
 
             const campo = (v) => '"' + String(v ?? '').replace(/"/g, '""') + '"';
-            let csv = "\uFEFFEquipo,Marca,Modelo,Serie,Inventario,Area,Fecha Ejecucion,Proximo Mantenimiento\n";
+            let csv = "\uFEFFOrden,Equipo,Marca,Modelo,Serie,Inventario,Area,Fecha Ejecucion,Proximo Mantenimiento\n";
             filtrados.forEach(d => {
-                csv += [d.Equipo, d.Marca, d.Modelo, d.Serie, d.Inventario, d.Area, d.FechaEjecucionStr, d.ProximoMantStr].map(campo).join(',') + "\n";
+                csv += [d.ID, d.Equipo, d.Marca, d.Modelo, d.Serie, d.Inventario, d.Area, d.FechaEjecucionStr, d.ProximoMantStr].map(campo).join(',') + "\n";
             });
             const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement("a");
@@ -1064,7 +1086,7 @@
             document.getElementById('contadorPrev').innerText = filtrados.length + ' de ' + dataPreventivos.length + ' registros';
 
             if (filtrados.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-8 text-center text-slate-500">No hay mantenimientos preventivos que coincidan con la búsqueda.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="7" class="px-4 py-8 text-center text-slate-500">No hay mantenimientos preventivos que coincidan con la búsqueda.</td></tr>`;
                 return;
             }
 
@@ -1077,6 +1099,7 @@
                 const tr = document.createElement('tr');
                 tr.className = 'hover:bg-slate-50 transition-colors';
                 tr.innerHTML = `
+                    <td class="px-4 py-3 font-bold text-slate-700 whitespace-nowrap">${esc(d.ID)}</td>
                     <td class="px-4 py-3">
                         <div class="font-semibold text-slate-800">${esc(d.Equipo)}</div>
                         <div class="text-xs text-slate-500">${esc(d.Marca)} / ${esc(d.Modelo)}</div>
@@ -1403,6 +1426,7 @@
         }
 
         document.getElementById('filtroTextoPrev').addEventListener('input', renderTablaPreventivos);
+        document.getElementById('filtroMesEjecPrev').addEventListener('change', renderTablaPreventivos);
         document.getElementById('filtroMesPrev').addEventListener('change', renderTablaPreventivos);
         document.getElementById('filtroMesCorr').addEventListener('change', renderTablaCorrectivos);
         document.getElementById('buscadorClientes').addEventListener('input', (e) => generarSidebarClientes(e.target.value));
