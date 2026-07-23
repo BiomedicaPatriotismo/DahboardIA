@@ -59,6 +59,8 @@
             }
             .no-print-modal { display: none !important; }
             .break-inside-avoid { break-inside: avoid; }
+            /* Los recuadros de foto vacíos se imprimen limpios, sin el texto de ayuda */
+            .foto-slot span { display: none !important; }
         }
     </style>
 </head>
@@ -433,10 +435,6 @@
                     <h4 class="font-bold bg-slate-100 px-3 py-1.5 uppercase text-xs tracking-wider mb-3 border-l-4 border-slate-800">
                         V. Análisis de Valores de Medición
                     </h4>
-                    <div class="mb-4 px-3 py-2 text-sm text-slate-700 bg-slate-50 rounded-lg border border-slate-200 font-medium" id="rutinaTextoMedicion">
-                        <!-- Texto original inyectado por JS -->
-                    </div>
-
                     <div class="flex flex-col gap-6 items-start">
                         <!-- Tabla Dinámica -->
                         <div id="rutinaTablaContainer" class="overflow-x-auto w-full shadow-sm rounded-lg border border-slate-200 bg-white">
@@ -1165,7 +1163,6 @@
 
             // ===== Sección V: Valores de Medición =====
             const valoresContainer = document.getElementById('rutinaValoresContainer');
-            const textoMedicionEl = document.getElementById('rutinaTextoMedicion');
             const tablaContainer = document.getElementById('rutinaTablaContainer');
             const chartWrapper = document.getElementById('rutinaChartWrapper');
 
@@ -1175,7 +1172,6 @@
 
             if (textMedicion && textMedicion !== 'undefined' && textMedicion !== 'N/A') {
                 valoresContainer.style.display = 'block';
-                textoMedicionEl.innerHTML = `<span class="font-bold text-slate-900">Registro Original:</span> ${esc(textMedicion)}`;
 
                 const filas = parsearMediciones(textMedicion);
 
@@ -1184,7 +1180,7 @@
                     let tablaHTML = '<table class="min-w-full text-sm text-left border-collapse"><thead class="bg-slate-800 text-white"><tr><th class="p-3 font-semibold rounded-tl-lg">Parámetro</th><th class="p-3 font-semibold">Programado</th><th class="p-3 font-semibold">Desplegado</th><th class="p-3 font-semibold">Medido</th><th class="p-3 font-semibold text-center rounded-tr-lg">Error</th></tr></thead><tbody class="divide-y divide-slate-200 bg-white">';
 
                     const labels = [], serieProg = [], serieReal = [], serieErr = [];
-                    let hayNumericos = false;
+                    let hayComparables = false;
 
                     filas.forEach((f, idx) => {
                         const nProg = aNumeroMedicion(f.programado);
@@ -1210,42 +1206,42 @@
                             <td class="p-3 text-center ${errorClass}">${esc(errorTxt)}</td>
                         </tr>`;
 
-                        if (nReal !== null) {
-                            hayNumericos = true;
+                        // Solo se grafican parámetros COMPARABLES (con valor programado
+                        // Y valor real). Las lecturas sueltas quedan solo en la tabla.
+                        if (nProg !== null && nReal !== null) {
+                            hayComparables = true;
                             labels.push(f.nombre.length > 22 ? f.nombre.slice(0, 22) + '…' : f.nombre);
                             serieProg.push(nProg);
                             serieReal.push(nReal);
-                            serieErr.push((nProg !== null) ? parseFloat((nReal - nProg).toFixed(4)) : null);
+                            serieErr.push(parseFloat((nReal - nProg).toFixed(4)));
                         }
                     });
                     tablaHTML += '</tbody></table>';
                     tablaContainer.innerHTML = tablaHTML;
 
-                    if (hayNumericos) {
+                    // La gráfica solo se genera con parámetros comparables
+                    // (Programado vs Real); las mediciones sueltas van solo en la tabla.
+                    if (hayComparables) {
                         chartWrapper.style.display = 'block';
                         const ctx = document.getElementById('rutinaChart').getContext('2d');
-                        const hayProg = serieProg.some(v => v !== null);
 
-                        const datasets = [];
-                        if (hayProg) {
-                            datasets.push({
+                        const datasets = [
+                            {
                                 label: 'Valor Programado', data: serieProg,
                                 borderColor: '#94a3b8', backgroundColor: '#94a3b8',
-                                borderDash: [5, 5], fill: false, tension: 0.1, spanGaps: true, yAxisID: 'y'
-                            });
-                        }
-                        datasets.push({
-                            label: 'Valor Real (Medido/Desplegado)', data: serieReal,
-                            borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                            fill: true, tension: 0.3, pointRadius: 4, spanGaps: true, yAxisID: 'y'
-                        });
-                        if (hayProg) {
-                            datasets.push({
+                                borderDash: [5, 5], fill: false, tension: 0.1, yAxisID: 'y'
+                            },
+                            {
+                                label: 'Valor Real (Medido/Desplegado)', data: serieReal,
+                                borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                fill: true, tension: 0.3, pointRadius: 4, yAxisID: 'y'
+                            },
+                            {
                                 type: 'bar', label: 'Error', data: serieErr,
-                                backgroundColor: serieErr.map(e => e === null ? 'rgba(148,163,184,0.3)' : (e > 0 ? 'rgba(239, 68, 68, 0.7)' : (e < 0 ? 'rgba(245, 158, 11, 0.7)' : 'rgba(16, 185, 129, 0.7)'))),
+                                backgroundColor: serieErr.map(e => e > 0 ? 'rgba(239, 68, 68, 0.7)' : (e < 0 ? 'rgba(245, 158, 11, 0.7)' : 'rgba(16, 185, 129, 0.7)')),
                                 yAxisID: 'y1'
-                            });
-                        }
+                            }
+                        ];
 
                         chartRutinaObj = new Chart(ctx, {
                             type: 'line',
@@ -1261,7 +1257,7 @@
                                 scales: {
                                     x: { ticks: { font: { size: 9 }, maxRotation: 60 } },
                                     y: { title: { display: true, text: 'Magnitud', font: { size: 10 } }, position: 'left' },
-                                    ...(hayProg && { y1: { type: 'linear', position: 'right', title: { display: true, text: 'Error', font: { size: 10 } }, grid: { drawOnChartArea: false } } })
+                                    y1: { type: 'linear', position: 'right', title: { display: true, text: 'Error', font: { size: 10 } }, grid: { drawOnChartArea: false } }
                                 }
                             }
                         });
@@ -1270,26 +1266,17 @@
                     }
                 } else {
                     // ---- Fallback: texto libre sin el formato "Medicion:" ----
+                    // Solo tabla de lecturas; sin gráfica porque no hay valores comparables.
                     const nums = textMedicion.match(/-?\d+(\.\d+)?/g);
                     if (nums && nums.length > 0) {
-                        chartWrapper.style.display = 'block';
-                        const labels = [], reales = [];
+                        chartWrapper.style.display = 'none';
                         let tablaHTML = '<table class="min-w-full text-sm text-left border-collapse"><thead class="bg-slate-800 text-white"><tr><th class="p-3 font-semibold rounded-tl-lg">Lectura</th><th class="p-3 font-semibold rounded-tr-lg">Valor Registrado</th></tr></thead><tbody class="divide-y divide-slate-200 bg-white">';
                         nums.forEach((n, i) => {
                             const val = parseFloat(n);
-                            labels.push('Lec ' + (i + 1));
-                            reales.push(val);
                             tablaHTML += `<tr class="hover:bg-slate-50 transition-colors"><td class="p-3 font-medium text-slate-800">Lectura ${i + 1}</td><td class="p-3 font-semibold text-brand-700">${val}</td></tr>`;
                         });
                         tablaHTML += '</tbody></table>';
                         tablaContainer.innerHTML = tablaHTML;
-
-                        const ctx = document.getElementById('rutinaChart').getContext('2d');
-                        chartRutinaObj = new Chart(ctx, {
-                            type: 'line',
-                            data: { labels: labels, datasets: [{ label: 'Valores Registrados', data: reales, borderColor: '#14b8a6', backgroundColor: 'rgba(20, 184, 166, 0.2)', fill: true, tension: 0.3, pointRadius: 5 }] },
-                            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' }, datalabels: { display: false } } }
-                        });
                     } else {
                         tablaContainer.innerHTML = '<p class="text-xs text-slate-500 italic p-3 bg-slate-50 rounded-lg border border-slate-200">El registro no contiene valores numéricos estructurados para generar tabla dinámica.</p>';
                         chartWrapper.style.display = 'none';
@@ -1299,41 +1286,70 @@
                 valoresContainer.style.display = 'none';
             }
 
-            // ===== Sección VI: Evidencia fotográfica (FIX: 4 columnas de Jotform) =====
+            // ===== Sección VI: Evidencia fotográfica =====
+            // Las fotos de Jotform requieren acceso a la plataforma, así que aquí se
+            // dejan espacios en blanco donde el usuario puede PEGAR (Ctrl+V), hacer
+            // clic para elegir un archivo, o arrastrar la imagen antes de imprimir.
             const fotosContainer = document.getElementById('rutinaFotos');
             const fotosWrapper = document.getElementById('rutinaFotosContainer');
             fotosContainer.innerHTML = '';
-            if (eq.Fotos && eq.Fotos.length > 0) {
-                eq.Fotos.forEach(f => {
-                    const fig = document.createElement('figure');
-                    fig.className = 'flex flex-col items-center gap-1';
 
-                    const img = document.createElement('img');
-                    img.src = f.url;
-                    img.alt = f.etiqueta;
-                    img.className = 'h-48 w-48 object-cover rounded-lg shadow-sm border border-slate-200 bg-slate-100';
-                    img.loading = 'lazy';
-                    // Si la imagen no carga (p.ej. Jotform requiere sesión) se ofrece el enlace
-                    img.addEventListener('error', () => {
-                        const a = document.createElement('a');
-                        a.href = f.url; a.target = '_blank'; a.rel = 'noopener';
-                        a.className = 'h-48 w-48 flex items-center justify-center text-center text-xs text-brand-600 underline border border-dashed border-slate-300 rounded-lg p-3 bg-slate-50';
-                        a.innerText = 'Ver foto "' + f.etiqueta + '" (requiere acceso a Jotform)';
-                        img.replaceWith(a);
-                    });
+            const espaciosFoto = ['Antes', 'Durante', 'Al final', 'No. de Serie'];
+            espaciosFoto.forEach(etiqueta => {
+                const fig = document.createElement('figure');
+                fig.className = 'flex flex-col items-center gap-1';
 
-                    const cap = document.createElement('figcaption');
-                    cap.className = 'text-xs font-semibold text-slate-500 uppercase';
-                    cap.innerText = f.etiqueta;
+                const box = document.createElement('div');
+                box.tabIndex = 0; // permite enfocar el recuadro para pegar con Ctrl+V
+                box.className = 'foto-slot h-48 w-48 flex items-center justify-center text-center text-xs text-slate-400 border-2 border-dashed border-slate-300 rounded-lg bg-slate-50 cursor-pointer select-none overflow-hidden focus:border-brand-500 focus:text-brand-600 outline-none transition-colors';
+                box.innerHTML = '<span class="px-3 pointer-events-none">Clic para elegir,<br>pegar (Ctrl+V)<br>o arrastrar imagen</span>';
 
-                    fig.appendChild(img);
-                    fig.appendChild(cap);
-                    fotosContainer.appendChild(fig);
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = 'image/*';
+                input.className = 'hidden';
+
+                const colocarImagen = (file) => {
+                    if (!file || !file.type.startsWith('image/')) return;
+                    const reader = new FileReader();
+                    reader.onload = (ev) => {
+                        box.innerHTML = '';
+                        const img = document.createElement('img');
+                        img.src = ev.target.result;
+                        img.className = 'h-full w-full object-cover';
+                        box.appendChild(img);
+                        box.classList.remove('border-dashed');
+                        box.classList.add('border-solid', 'border-slate-200');
+                    };
+                    reader.readAsDataURL(file);
+                };
+
+                box.addEventListener('click', () => input.click());
+                input.addEventListener('change', () => colocarImagen(input.files[0]));
+                // Pegar desde el portapapeles con el recuadro enfocado
+                box.addEventListener('paste', (e) => {
+                    const item = [...(e.clipboardData?.items || [])].find(i => i.type.startsWith('image/'));
+                    if (item) { e.preventDefault(); colocarImagen(item.getAsFile()); }
                 });
-                fotosWrapper.style.display = 'block';
-            } else {
-                fotosWrapper.style.display = 'none';
-            }
+                // Arrastrar y soltar
+                box.addEventListener('dragover', (e) => { e.preventDefault(); box.classList.add('border-brand-500'); });
+                box.addEventListener('dragleave', () => box.classList.remove('border-brand-500'));
+                box.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    box.classList.remove('border-brand-500');
+                    colocarImagen(e.dataTransfer?.files?.[0]);
+                });
+
+                const cap = document.createElement('figcaption');
+                cap.className = 'text-xs font-semibold text-slate-500 uppercase';
+                cap.innerText = etiqueta;
+
+                fig.appendChild(box);
+                fig.appendChild(input);
+                fig.appendChild(cap);
+                fotosContainer.appendChild(fig);
+            });
+            fotosWrapper.style.display = 'block';
 
             modal.classList.remove('hidden');
             modal.classList.add('flex');
