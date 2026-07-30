@@ -49,8 +49,9 @@ Documento imprimible por equipo con folio trazable al ID de la orden:
 2. **II. Datos del Equipo** — equipo, área, marca, modelo, serie, inventario, ingeniero y próximo mantenimiento.
 3. **III. Equipo de Calibración / Patrón** — tomado de la orden original.
 4. **IV. Check-List de Actividades** — 8 actividades estándar con opciones Aprobado / Rechazado / N/A (sin pre-llenar).
-5. **V. Análisis de Valores de Medición** — tabla Parámetro / Programado / Desplegado / Medido / Error (tolerancia ±10 % resaltada en rojo) y **gráfica comparativa** que solo incluye parámetros con valor programado *y* valor real; las lecturas sueltas aparecen únicamente en la tabla.
-6. **VI. Autorización** — espacio para firma con la leyenda "AUTORIZO" y campo editable en pantalla para escribir el nombre del responsable autorizado antes de imprimir.
+5. **V. Análisis de Valores de Medición** — tabla **editable en pantalla** Parámetro / Programado / Desplegado / Medido / Error (tolerancia ±10 % resaltada en rojo) y **gráfica comparativa** que solo incluye parámetros con valor programado *y* valor real; las lecturas sueltas aparecen únicamente en la tabla. Al editar cualquier celda, la columna Error se recalcula y la gráfica se redibuja automáticamente. Si algún valor difiere del registro original de la orden, aparece una **nota al pie de la sección** indicando que los datos fueron modificados manualmente, con un campo editable para escribir el **motivo de la modificación** (determinado por quien realiza el cambio). La nota solo se muestra —y se imprime— mientras exista alguna diferencia respecto al registro original.
+6. **VI. Observaciones** — campo de texto libre editable en pantalla para registrar observaciones acerca del servicio antes de imprimir (si se deja vacío, se imprime el recuadro en blanco para llenado manual).
+7. **VII. Autorización** — espacio para firma con la leyenda "AUTORIZO" y campo editable en pantalla para escribir el nombre del responsable autorizado antes de imprimir.
 
 El botón **Imprimir / Guardar PDF** genera el documento completo (todas las páginas, no solo lo visible), oculta la interfaz y convierte las gráficas a imagen para una impresión nítida. Optimizado también para impresión desde dispositivos móviles.
 
@@ -185,3 +186,4 @@ Una fila por mes con las columnas (en minúsculas): `mes`, `ratio_preventivo`, `
 | 2.2 | Impresión completa de la rutina (multi-página) con interfaz oculta; optimización para móvil |
 | 2.3 | Sección VI de Autorización (firma + nombre del responsable) en sustitución de evidencia fotográfica |
 | 2.4 | Columna Orden (ID) y filtro por mes de ejecución en la pestaña de preventivos |
+| 2.5 | Nueva sección "VI. Observaciones" (texto libre); Autorización pasa a ser VII; tabla de mediciones (sección V) editable con recálculo de Error y gráfica en vivo, y nota al pie con motivo cuando los datos difieren del registro original |

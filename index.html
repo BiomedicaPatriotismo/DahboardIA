@@ -88,14 +88,20 @@
             .break-inside-avoid { break-inside: avoid; page-break-inside: avoid; }
         }
 
-        /* Placeholder del campo editable de nombre autorizado (no se imprime) */
-        #rutNombreAutorizado:empty::before {
+        /* Placeholders de los campos editables (no se imprimen) */
+        #rutNombreAutorizado:empty::before,
+        #rutObservaciones:empty::before,
+        #rutinaModifMotivo:empty::before {
             content: attr(data-placeholder);
             color: #94a3b8;
             font-weight: 400;
         }
         @media print {
-            #rutNombreAutorizado:empty::before { content: '' !important; }
+            #rutNombreAutorizado:empty::before,
+            #rutObservaciones:empty::before,
+            #rutinaModifMotivo:empty::before { content: '' !important; }
+            /* Las celdas editables se imprimen como texto normal */
+            [data-edit-campo] { background: transparent !important; }
         }
     </style>
 </head>
@@ -488,12 +494,32 @@
                             <canvas id="rutinaChart"></canvas>
                         </div>
                     </div>
+
+                    <!-- Nota al pie: aparece solo si se editaron los valores de medición -->
+                    <div id="rutinaModifNota" class="hidden mt-3 pt-2 px-1 border-t border-dashed border-slate-300 text-xs break-inside-avoid">
+                        <p class="text-slate-600">
+                            <span class="font-bold text-red-700">* Nota:</span>
+                            Los valores de medición de este documento fueron modificados manualmente respecto al registro original de la orden.
+                        </p>
+                        <p class="mt-1 text-slate-700 flex flex-wrap items-baseline gap-1">
+                            <span class="font-semibold whitespace-nowrap">Motivo de la modificación:</span>
+                            <span id="rutinaModifMotivo" contenteditable="true" spellcheck="false" data-placeholder="Escriba el motivo de la modificación…" class="outline-none focus:bg-brand-50 rounded px-1 min-w-[12rem] flex-1"></span>
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Observaciones -->
+                <div class="mb-8 break-inside-avoid" id="rutinaObservacionesContainer">
+                    <h4 class="font-bold bg-slate-100 px-3 py-1.5 uppercase text-xs tracking-wider mb-3 border-l-4 border-slate-800">
+                        VI. Observaciones
+                    </h4>
+                    <div id="rutObservaciones" contenteditable="true" spellcheck="false" data-placeholder="Escriba aquí las observaciones acerca del servicio…" class="mx-2 text-sm px-3 py-3 border border-slate-200 rounded-lg bg-slate-50/50 min-h-[6rem] outline-none focus:bg-brand-50 transition-colors whitespace-pre-wrap"></div>
                 </div>
 
                 <!-- Autorización -->
                 <div class="mb-4 break-inside-avoid" id="rutinaAutorizacionContainer">
                     <h4 class="font-bold bg-slate-100 px-3 py-1.5 uppercase text-xs tracking-wider mb-3 border-l-4 border-slate-800">
-                        VI. Autorización
+                        VII. Autorización
                     </h4>
                     <div class="px-2 pt-6 flex justify-center">
                         <div class="flex flex-col items-center w-full max-w-sm">
@@ -595,6 +621,12 @@
 
         let charts = { carga: null, tipos: null, clientes: null, marcas: null };
         let chartRutinaObj = null;
+
+        // Estado de edición de la Sección V (Valores de Medición) de la rutina
+        let rutinaFilasActuales = null;      // formato estructurado (editable)
+        let rutinaFilasOriginales = null;    // copia original para detectar cambios
+        let rutinaLecturasActuales = null;   // fallback de lecturas sueltas (editable)
+        let rutinaLecturasOriginales = null; // copia original para detectar cambios
 
         let datosAgrupadosPorMes = [];
         let datosDetalleOrdenes = [];
@@ -1227,10 +1259,15 @@
             checklistHTML += '</tbody></table>';
             rutActividades.innerHTML = checklistHTML;
 
-            // ===== Sección V: Valores de Medición =====
+            // ===== Sección V: Valores de Medición (editable) =====
             const valoresContainer = document.getElementById('rutinaValoresContainer');
-            const tablaContainer = document.getElementById('rutinaTablaContainer');
-            const chartWrapper = document.getElementById('rutinaChartWrapper');
+
+            // Estado de edición: se reinicia con cada rutina nueva
+            rutinaFilasActuales = null;
+            rutinaFilasOriginales = null;
+            rutinaLecturasActuales = null;
+            rutinaLecturasOriginales = null;
+            reiniciarNotaModificacion();
 
             if (chartRutinaObj) { chartRutinaObj.destroy(); chartRutinaObj = null; }
 
@@ -1242,117 +1279,35 @@
                 const filas = parsearMediciones(textMedicion);
 
                 if (filas) {
-                    // ---- Formato estructurado de Jotform ----
-                    let tablaHTML = '<table class="min-w-full text-sm text-left border-collapse"><thead class="bg-slate-800 text-white"><tr><th class="p-3 font-semibold rounded-tl-lg">Parámetro</th><th class="p-3 font-semibold">Programado</th><th class="p-3 font-semibold">Desplegado</th><th class="p-3 font-semibold">Medido</th><th class="p-3 font-semibold text-center rounded-tr-lg">Error</th></tr></thead><tbody class="divide-y divide-slate-200 bg-white">';
-
-                    const labels = [], serieProg = [], serieReal = [], serieErr = [];
-                    let hayComparables = false;
-
-                    filas.forEach((f, idx) => {
-                        const nProg = aNumeroMedicion(f.programado);
-                        const nDesp = aNumeroMedicion(f.desplegado);
-                        const nMed = aNumeroMedicion(f.medido);
-                        const nReal = (nMed !== null) ? nMed : nDesp;
-
-                        let errorTxt = '—';
-                        let errorClass = 'text-slate-400';
-                        if (nProg !== null && nReal !== null) {
-                            const err = parseFloat((nReal - nProg).toFixed(4));
-                            errorTxt = (err > 0 ? '+' : '') + err;
-                            // Tolerancia del 10% para resaltar en rojo
-                            errorClass = (nProg !== 0 && Math.abs(err) > Math.abs(nProg) * 0.1)
-                                ? 'text-red-600 font-bold bg-red-50' : 'text-slate-700';
-                        }
-
-                        tablaHTML += `<tr class="hover:bg-slate-50 transition-colors">
-                            <td class="p-3 font-medium text-slate-800">${esc(f.nombre)}</td>
-                            <td class="p-3">${esc(f.programado || '—')}</td>
-                            <td class="p-3">${esc(f.desplegado || '—')}</td>
-                            <td class="p-3 font-semibold">${esc(f.medido || '—')}</td>
-                            <td class="p-3 text-center ${errorClass}">${esc(errorTxt)}</td>
-                        </tr>`;
-
-                        // Solo se grafican parámetros COMPARABLES (con valor programado
-                        // Y valor real). Las lecturas sueltas quedan solo en la tabla.
-                        if (nProg !== null && nReal !== null) {
-                            hayComparables = true;
-                            labels.push(f.nombre.length > 22 ? f.nombre.slice(0, 22) + '…' : f.nombre);
-                            serieProg.push(nProg);
-                            serieReal.push(nReal);
-                            serieErr.push(parseFloat((nReal - nProg).toFixed(4)));
-                        }
-                    });
-                    tablaHTML += '</tbody></table>';
-                    tablaContainer.innerHTML = tablaHTML;
-
-                    // La gráfica solo se genera con parámetros comparables
-                    // (Programado vs Real); las mediciones sueltas van solo en la tabla.
-                    if (hayComparables) {
-                        chartWrapper.style.display = 'block';
-                        const ctx = document.getElementById('rutinaChart').getContext('2d');
-
-                        const datasets = [
-                            {
-                                label: 'Valor Programado', data: serieProg,
-                                borderColor: '#94a3b8', backgroundColor: '#94a3b8',
-                                borderDash: [5, 5], fill: false, tension: 0.1, yAxisID: 'y'
-                            },
-                            {
-                                label: 'Valor Real (Medido/Desplegado)', data: serieReal,
-                                borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                                fill: true, tension: 0.3, pointRadius: 4, yAxisID: 'y'
-                            },
-                            {
-                                type: 'bar', label: 'Error', data: serieErr,
-                                backgroundColor: serieErr.map(e => e > 0 ? 'rgba(239, 68, 68, 0.7)' : (e < 0 ? 'rgba(245, 158, 11, 0.7)' : 'rgba(16, 185, 129, 0.7)')),
-                                yAxisID: 'y1'
-                            }
-                        ];
-
-                        chartRutinaObj = new Chart(ctx, {
-                            type: 'line',
-                            data: { labels: labels, datasets: datasets },
-                            options: {
-                                responsive: true, maintainAspectRatio: false,
-                                interaction: { mode: 'index', intersect: false },
-                                plugins: {
-                                    legend: { position: 'top', labels: { usePointStyle: true, boxWidth: 8, font: { size: 10 } } },
-                                    datalabels: { display: false },
-                                    tooltip: { backgroundColor: 'rgba(15, 23, 42, 0.9)' }
-                                },
-                                scales: {
-                                    x: { ticks: { font: { size: 9 }, maxRotation: 60 } },
-                                    y: { title: { display: true, text: 'Magnitud', font: { size: 10 } }, position: 'left' },
-                                    y1: { type: 'linear', position: 'right', title: { display: true, text: 'Error', font: { size: 10 } }, grid: { drawOnChartArea: false } }
-                                }
-                            }
-                        });
-                    } else {
-                        chartWrapper.style.display = 'none';
-                    }
+                    // ---- Formato estructurado de Jotform: tabla editable + gráfica ----
+                    rutinaFilasActuales = filas.map(f => ({ ...f }));
+                    rutinaFilasOriginales = filas.map(f => ({ ...f }));
+                    renderTablaMediciones();
+                    construirGraficaMediciones();
                 } else {
                     // ---- Fallback: texto libre sin el formato "Medicion:" ----
-                    // Solo tabla de lecturas; sin gráfica porque no hay valores comparables.
+                    // Solo tabla de lecturas (editable); sin gráfica porque no hay valores comparables.
                     const nums = textMedicion.match(/-?\d+(\.\d+)?/g);
                     if (nums && nums.length > 0) {
-                        chartWrapper.style.display = 'none';
-                        let tablaHTML = '<table class="min-w-full text-sm text-left border-collapse"><thead class="bg-slate-800 text-white"><tr><th class="p-3 font-semibold rounded-tl-lg">Lectura</th><th class="p-3 font-semibold rounded-tr-lg">Valor Registrado</th></tr></thead><tbody class="divide-y divide-slate-200 bg-white">';
-                        nums.forEach((n, i) => {
-                            const val = parseFloat(n);
-                            tablaHTML += `<tr class="hover:bg-slate-50 transition-colors"><td class="p-3 font-medium text-slate-800">Lectura ${i + 1}</td><td class="p-3 font-semibold text-brand-700">${val}</td></tr>`;
-                        });
-                        tablaHTML += '</tbody></table>';
-                        tablaContainer.innerHTML = tablaHTML;
+                        rutinaLecturasActuales = nums.map(n => String(parseFloat(n)));
+                        rutinaLecturasOriginales = rutinaLecturasActuales.slice();
+                        renderTablaLecturas();
+                        document.getElementById('rutinaChartWrapper').style.display = 'none';
                     } else {
-                        tablaContainer.innerHTML = '<p class="text-xs text-slate-500 italic p-3 bg-slate-50 rounded-lg border border-slate-200">El registro no contiene valores numéricos estructurados para generar tabla dinámica.</p>';
-                        chartWrapper.style.display = 'none';
+                        document.getElementById('rutinaTablaContainer').innerHTML = '<p class="text-xs text-slate-500 italic p-3 bg-slate-50 rounded-lg border border-slate-200">El registro no contiene valores numéricos estructurados para generar tabla dinámica.</p>';
+                        document.getElementById('rutinaChartWrapper').style.display = 'none';
                     }
                 }
             } else {
                 valoresContainer.style.display = 'none';
             }
 
-            // ===== Sección VI: Autorización =====
+            // ===== Sección VI: Observaciones =====
+            // Campo de texto libre para observaciones del servicio;
+            // se limpia al abrir cada rutina nueva.
+            document.getElementById('rutObservaciones').innerText = '';
+
+            // ===== Sección VII: Autorización =====
             // Campo editable para escribir el nombre del responsable autorizado
             // antes de imprimir; se limpia al abrir cada rutina nueva.
             document.getElementById('rutNombreAutorizado').innerText = '';
@@ -1366,6 +1321,214 @@
             document.getElementById('modalRutina').classList.add('hidden');
             document.getElementById('modalRutina').classList.remove('flex');
         }
+
+        /* ============================================================
+           SECCIÓN V EDITABLE: TABLA DE MEDICIONES, GRÁFICA Y NOTA
+           ============================================================ */
+
+        // Normaliza el texto de una celda editable ('—' equivale a vacío)
+        function valorCelda(txt) {
+            const t = String(txt || '').trim();
+            return (t === '—') ? '' : t;
+        }
+
+        // Calcula el texto y estilo de la columna Error para una fila
+        function calcularErrorFila(f) {
+            const nProg = aNumeroMedicion(f.programado);
+            const nDesp = aNumeroMedicion(f.desplegado);
+            const nMed = aNumeroMedicion(f.medido);
+            const nReal = (nMed !== null) ? nMed : nDesp;
+
+            let errorTxt = '—';
+            let errorClass = 'text-slate-400';
+            if (nProg !== null && nReal !== null) {
+                const err = parseFloat((nReal - nProg).toFixed(4));
+                errorTxt = (err > 0 ? '+' : '') + err;
+                // Tolerancia del 10% para resaltar en rojo
+                errorClass = (nProg !== 0 && Math.abs(err) > Math.abs(nProg) * 0.1)
+                    ? 'text-red-600 font-bold bg-red-50' : 'text-slate-700';
+            }
+            return { txt: errorTxt, cls: errorClass };
+        }
+
+        // Dibuja la tabla estructurada con celdas editables
+        function renderTablaMediciones() {
+            const editCls = 'p-3 outline-none focus:bg-brand-50 focus:ring-1 focus:ring-brand-300 transition-colors cursor-text';
+            let tablaHTML = '<table class="min-w-full text-sm text-left border-collapse"><thead class="bg-slate-800 text-white"><tr><th class="p-3 font-semibold rounded-tl-lg">Parámetro</th><th class="p-3 font-semibold">Programado</th><th class="p-3 font-semibold">Desplegado</th><th class="p-3 font-semibold">Medido</th><th class="p-3 font-semibold text-center rounded-tr-lg">Error</th></tr></thead><tbody class="divide-y divide-slate-200 bg-white">';
+
+            rutinaFilasActuales.forEach((f, idx) => {
+                const err = calcularErrorFila(f);
+                tablaHTML += `<tr class="hover:bg-slate-50 transition-colors">
+                    <td contenteditable="true" spellcheck="false" data-edit-campo="nombre" data-idx="${idx}" class="${editCls} font-medium text-slate-800">${esc(f.nombre)}</td>
+                    <td contenteditable="true" spellcheck="false" data-edit-campo="programado" data-idx="${idx}" class="${editCls}">${esc(f.programado || '—')}</td>
+                    <td contenteditable="true" spellcheck="false" data-edit-campo="desplegado" data-idx="${idx}" class="${editCls}">${esc(f.desplegado || '—')}</td>
+                    <td contenteditable="true" spellcheck="false" data-edit-campo="medido" data-idx="${idx}" class="${editCls} font-semibold">${esc(f.medido || '—')}</td>
+                    <td data-err-idx="${idx}" class="p-3 text-center ${err.cls}">${esc(err.txt)}</td>
+                </tr>`;
+            });
+            tablaHTML += '</tbody></table>';
+            document.getElementById('rutinaTablaContainer').innerHTML = tablaHTML;
+        }
+
+        // Dibuja la tabla de lecturas sueltas (fallback) con valores editables
+        function renderTablaLecturas() {
+            const editCls = 'p-3 outline-none focus:bg-brand-50 focus:ring-1 focus:ring-brand-300 transition-colors cursor-text font-semibold text-brand-700';
+            let tablaHTML = '<table class="min-w-full text-sm text-left border-collapse"><thead class="bg-slate-800 text-white"><tr><th class="p-3 font-semibold rounded-tl-lg">Lectura</th><th class="p-3 font-semibold rounded-tr-lg">Valor Registrado</th></tr></thead><tbody class="divide-y divide-slate-200 bg-white">';
+            rutinaLecturasActuales.forEach((v, i) => {
+                tablaHTML += `<tr class="hover:bg-slate-50 transition-colors"><td class="p-3 font-medium text-slate-800">Lectura ${i + 1}</td><td contenteditable="true" spellcheck="false" data-edit-campo="lectura" data-idx="${i}" class="${editCls}">${esc(v)}</td></tr>`;
+            });
+            tablaHTML += '</tbody></table>';
+            document.getElementById('rutinaTablaContainer').innerHTML = tablaHTML;
+        }
+
+        // (Re)construye la gráfica a partir de los valores actuales de la tabla.
+        // Solo se grafican parámetros COMPARABLES (con valor programado Y valor
+        // real); las lecturas sueltas quedan solo en la tabla.
+        function construirGraficaMediciones() {
+            const chartWrapper = document.getElementById('rutinaChartWrapper');
+            if (chartRutinaObj) { chartRutinaObj.destroy(); chartRutinaObj = null; }
+
+            if (!rutinaFilasActuales) { chartWrapper.style.display = 'none'; return; }
+
+            const labels = [], serieProg = [], serieReal = [], serieErr = [];
+            rutinaFilasActuales.forEach(f => {
+                const nProg = aNumeroMedicion(f.programado);
+                const nDesp = aNumeroMedicion(f.desplegado);
+                const nMed = aNumeroMedicion(f.medido);
+                const nReal = (nMed !== null) ? nMed : nDesp;
+                if (nProg !== null && nReal !== null) {
+                    labels.push(f.nombre.length > 22 ? f.nombre.slice(0, 22) + '…' : f.nombre);
+                    serieProg.push(nProg);
+                    serieReal.push(nReal);
+                    serieErr.push(parseFloat((nReal - nProg).toFixed(4)));
+                }
+            });
+
+            if (labels.length === 0) { chartWrapper.style.display = 'none'; return; }
+
+            chartWrapper.style.display = 'block';
+            const ctx = document.getElementById('rutinaChart').getContext('2d');
+
+            const datasets = [
+                {
+                    label: 'Valor Programado', data: serieProg,
+                    borderColor: '#94a3b8', backgroundColor: '#94a3b8',
+                    borderDash: [5, 5], fill: false, tension: 0.1, yAxisID: 'y'
+                },
+                {
+                    label: 'Valor Real (Medido/Desplegado)', data: serieReal,
+                    borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    fill: true, tension: 0.3, pointRadius: 4, yAxisID: 'y'
+                },
+                {
+                    type: 'bar', label: 'Error', data: serieErr,
+                    backgroundColor: serieErr.map(e => e > 0 ? 'rgba(239, 68, 68, 0.7)' : (e < 0 ? 'rgba(245, 158, 11, 0.7)' : 'rgba(16, 185, 129, 0.7)')),
+                    yAxisID: 'y1'
+                }
+            ];
+
+            chartRutinaObj = new Chart(ctx, {
+                type: 'line',
+                data: { labels: labels, datasets: datasets },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { position: 'top', labels: { usePointStyle: true, boxWidth: 8, font: { size: 10 } } },
+                        datalabels: { display: false },
+                        tooltip: { backgroundColor: 'rgba(15, 23, 42, 0.9)' }
+                    },
+                    scales: {
+                        x: { ticks: { font: { size: 9 }, maxRotation: 60 } },
+                        y: { title: { display: true, text: 'Magnitud', font: { size: 10 } }, position: 'left' },
+                        y1: { type: 'linear', position: 'right', title: { display: true, text: 'Error', font: { size: 10 } }, grid: { drawOnChartArea: false } }
+                    }
+                }
+            });
+        }
+
+        // ¿Los datos actuales difieren del registro original?
+        function hayModificacionMediciones() {
+            if (rutinaFilasActuales && rutinaFilasOriginales) {
+                return rutinaFilasActuales.some((f, i) => {
+                    const o = rutinaFilasOriginales[i];
+                    return valorCelda(f.nombre) !== valorCelda(o.nombre) ||
+                           valorCelda(f.programado) !== valorCelda(o.programado) ||
+                           valorCelda(f.desplegado) !== valorCelda(o.desplegado) ||
+                           valorCelda(f.medido) !== valorCelda(o.medido);
+                });
+            }
+            if (rutinaLecturasActuales && rutinaLecturasOriginales) {
+                return rutinaLecturasActuales.some((v, i) => valorCelda(v) !== valorCelda(rutinaLecturasOriginales[i]));
+            }
+            return false;
+        }
+
+        // Muestra u oculta la nota al pie de la Sección V según haya cambios
+        function actualizarNotaModificacion() {
+            document.getElementById('rutinaModifNota').classList.toggle('hidden', !hayModificacionMediciones());
+        }
+
+        // Oculta la nota y limpia el motivo (al abrir una rutina nueva)
+        function reiniciarNotaModificacion() {
+            document.getElementById('rutinaModifNota').classList.add('hidden');
+            document.getElementById('rutinaModifMotivo').innerText = '';
+        }
+
+        // Aplica el contenido de una celda editada al estado en memoria
+        function aplicarEdicionCelda(celda) {
+            const idx = parseInt(celda.dataset.idx, 10);
+            const campo = celda.dataset.editCampo;
+            const valor = valorCelda(celda.innerText);
+
+            if (campo === 'lectura') {
+                if (rutinaLecturasActuales && idx < rutinaLecturasActuales.length) {
+                    rutinaLecturasActuales[idx] = valor;
+                }
+            } else if (rutinaFilasActuales && idx < rutinaFilasActuales.length) {
+                rutinaFilasActuales[idx][campo] = valor;
+                // Recalcular la columna Error de esa fila en vivo
+                const celdaErr = document.querySelector(`[data-err-idx="${idx}"]`);
+                if (celdaErr) {
+                    const err = calcularErrorFila(rutinaFilasActuales[idx]);
+                    celdaErr.textContent = err.txt;
+                    celdaErr.className = 'p-3 text-center ' + err.cls;
+                }
+            }
+            actualizarNotaModificacion();
+        }
+
+        // Delegación de eventos sobre la tabla de mediciones
+        (function iniciarEdicionMediciones() {
+            const cont = document.getElementById('rutinaTablaContainer');
+
+            // Al enfocar una celda vacía ('—'), limpiarla para escribir directo
+            cont.addEventListener('focusin', e => {
+                const c = e.target.closest('[data-edit-campo]');
+                if (c && c.innerText.trim() === '—') c.innerText = '';
+            });
+
+            // Mientras se escribe: actualizar estado, error y nota
+            cont.addEventListener('input', e => {
+                const c = e.target.closest('[data-edit-campo]');
+                if (c) aplicarEdicionCelda(c);
+            });
+
+            // Al salir de la celda: restaurar '—' si quedó vacía y redibujar gráfica
+            cont.addEventListener('focusout', e => {
+                const c = e.target.closest('[data-edit-campo]');
+                if (!c) return;
+                if (c.innerText.trim() === '') c.innerText = '—';
+                aplicarEdicionCelda(c);
+                if (rutinaFilasActuales) construirGraficaMediciones();
+            });
+
+            // Evitar saltos de línea dentro de las celdas (Enter = confirmar)
+            cont.addEventListener('keydown', e => {
+                const c = e.target.closest('[data-edit-campo]');
+                if (c && e.key === 'Enter') { e.preventDefault(); c.blur(); }
+            });
+        })();
 
         // FIX impresión: se reemplaza el canvas por una imagen estática antes de
         // imprimir (los canvas de Chart.js a veces salen en blanco o borrosos)
