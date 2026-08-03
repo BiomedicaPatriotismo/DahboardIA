@@ -731,9 +731,9 @@
         // coincide se usa FRECUENCIA_DEFAULT. Ajusta según tus contratos.
         const FRECUENCIA_DEFAULT = 6;
         const FRECUENCIAS_MESES = [
-            { clave: 'cama',    meses: 12 },
-            { clave: 'camilla', meses: 12 },
-            { clave: 'mesa',    meses: 12 }
+            // { clave: 'cama',    meses: 12 },
+            // { clave: 'camilla', meses: 12 },
+            // { clave: 'mesa',    meses: 12 }
             // Ejemplos para agregar:
             // { clave: 'ventilador', meses: 4 },
             // { clave: 'anestesia',  meses: 6 },
@@ -750,16 +750,16 @@
         const VERSION_APP = '2.6';
 
         // URL del Web App de Apps Script (termina en /exec). Vacío = sin backend.
-        const URL_APPS_SCRIPT = '';
+        const URL_APPS_SCRIPT = 'https://script.google.com/macros/s/AKfycbzfExL7dS7DRXBk_CbmZ3B4xr-NWEoitYmhPDbU18STN8Mlm_FrRpVwcvLiM_ctp52_ug/exec';
 
         // Debe coincidir con TOKEN en Code.gs.
-        const TOKEN_API = '';
+        const TOKEN_API = 'aLHnixAKEqXmC8c';
 
         // Origen de los datos de las hojas:
         //  'csv'        → CSV publicados (comportamiento original)
         //  'appsscript' → vía Code.gs con token (permite DESPUBLICAR los CSV,
         //                 con lo que la hoja deja de ser pública)
-        const ORIGEN_DATOS = 'csv';
+        const ORIGEN_DATOS = 'appsscript';
 
         // Control de acceso a la página:
         //  - Se activa cuando hay PIN definido o hay backend configurado.
