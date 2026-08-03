@@ -138,6 +138,18 @@
                 <!-- Se inyecta con JS -->
             </div>
         </nav>
+        <!-- v2.6: pie del sidebar con la sesión activa (visible solo con control de acceso) -->
+        <div id="sidebarFooter" class="hidden p-4 bg-slate-950/50 border-t border-slate-800">
+            <div class="flex items-center justify-between gap-2">
+                <div class="min-w-0">
+                    <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Sesión activa</p>
+                    <p id="sidebarUsuario" class="text-sm text-slate-200 font-semibold truncate" title=""></p>
+                </div>
+                <button id="btnCerrarSesion" class="shrink-0 text-xs font-semibold text-slate-400 hover:text-white border border-slate-700 hover:border-slate-500 rounded-lg px-3 py-1.5 transition-colors" title="Cerrar sesión y volver a identificarse">
+                    Salir
+                </button>
+            </div>
+        </div>
     </aside>
 
     <!-- Contenedor Principal -->
@@ -161,15 +173,25 @@
             </div>
         </div>
 
+        <!-- v2.6: aviso no bloqueante (p. ej. si solo falla la hoja de KPIs) -->
+        <div id="avisoBanner" class="hidden max-w-7xl mx-auto px-4 mt-6 fade-in no-print">
+            <div class="bg-amber-50 border-l-4 border-amber-500 text-amber-800 p-4 rounded-xl shadow-sm text-sm font-medium" id="avisoTexto"></div>
+        </div>
+
         <!-- ================= VISTA DASHBOARD GENERAL ================= -->
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-12 print-content" id="dashboardContent" style="display: none;">
             <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 bg-white p-6 rounded-2xl shadow-sm border border-slate-100 fade-in">
                 <div class="mb-4 lg:mb-0 pl-12 lg:pl-0">
                     <h1 class="text-3xl font-bold text-slate-900 tracking-tight">Métricas Operativas</h1>
                     <p class="text-sm text-slate-500 mt-1">Análisis de rendimiento y cargas de trabajo global</p>
+                    <p id="ultimaActualizacion" class="text-xs text-slate-400 mt-1"></p>
                 </div>
 
                 <div class="flex flex-col sm:flex-row gap-3 w-full lg:w-auto no-print">
+                    <button id="btnRefrescar" class="bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 font-semibold py-3 px-4 rounded-xl shadow-sm transition-all duration-200 flex items-center justify-center gap-2" title="Volver a descargar los datos publicados">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                        Actualizar
+                    </button>
                     <div class="relative w-full sm:w-56">
                         <select id="monthFilter" class="appearance-none bg-slate-50 border border-slate-200 text-slate-900 text-sm font-medium rounded-xl focus:ring-brand-500 focus:border-brand-500 block w-full p-3 pr-10 cursor-pointer outline-none">
                             <option value="todos">Todos los meses (Anual)</option>
@@ -318,12 +340,16 @@
 
             <!-- Pestañas de Mantenimiento -->
             <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-                <div class="border-b border-slate-200 bg-slate-50 px-6 flex gap-6 no-print">
+                <div class="border-b border-slate-200 bg-slate-50 px-6 flex gap-6 flex-wrap no-print">
                     <button id="tabPrev" onclick="cambiarPestana('prev')" class="py-4 px-2 text-sm focus:outline-none tab-active transition-colors">
                         Mantenimiento Preventivo / Calibración
                     </button>
-                    <button id="tabCorr" onclick="cambiarPestana('corr')" class="py-4 px-2 text-sm focus:outline-none tab-inactive transition-colors hover:text-slate-800">
+                    <button id="tabCorr" onclick="cambiarPestana('corr')" class="py-4 px-2 text-sm focus:outline-none tab-inactive transition-colors">
                         Mantenimiento Correctivo / Asistencia
+                    </button>
+                    <button id="tabCom" onclick="cambiarPestana('com')" class="py-4 px-2 text-sm focus:outline-none tab-inactive transition-colors flex items-center gap-2">
+                        Comunicación y Seguimiento
+                        <span id="comBadge" class="hidden bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-0.5 rounded-full" title="Pendientes abiertos">0</span>
                     </button>
                 </div>
 
@@ -381,7 +407,7 @@
                     </div>
 
                     <!-- Contenido Pestaña Correctivos -->
-                    <div id="contentCorr" class="hidden">
+                    <div id="contentCorr" style="display:none;">
                         <div class="flex flex-col sm:flex-row gap-4 mb-6 justify-end items-center no-print">
                             <span id="contadorCorr" class="text-xs font-semibold text-slate-400"></span>
                             <div class="flex items-center gap-2 w-full sm:w-auto">
@@ -407,6 +433,95 @@
                                     <!-- Inyectado por JS -->
                                 </tbody>
                             </table>
+                        </div>
+                    </div>
+
+                    <!-- ============ v2.6: Pestaña Comunicación y Seguimiento ============ -->
+                    <div id="contentCom" style="display:none;">
+                        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
+                            <div>
+                                <h3 class="text-base font-bold text-slate-800">Comunicación y seguimiento con el cliente</h3>
+                                <p class="text-xs text-slate-500 mt-0.5">Canales de contacto y bitácora de pendientes: correctivos, cotizaciones y mantenimientos en ejecución.</p>
+                            </div>
+                            <button id="comSyncEstado" class="text-xs font-semibold flex items-center gap-1.5 text-slate-400 no-print" title="Estado de sincronización. Clic para reintentar.">
+                                <span id="comSyncDot" class="w-2 h-2 rounded-full bg-slate-300 inline-block"></span>
+                                <span id="comSyncTexto">Guardado en este equipo</span>
+                            </button>
+                        </div>
+
+                        <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
+
+                            <!-- Panel: Canales de contacto -->
+                            <div class="xl:col-span-1 bg-slate-50 border border-slate-200 rounded-xl p-4">
+                                <div class="flex justify-between items-center mb-3">
+                                    <h4 class="text-sm font-bold text-slate-800 uppercase tracking-wide">Canales de contacto</h4>
+                                    <button data-accion="nuevo-canal" class="no-print bg-slate-900 hover:bg-slate-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors">+ Agregar</button>
+                                </div>
+
+                                <div id="formCanal" class="hidden no-print bg-white border border-slate-200 rounded-lg p-3 mb-3 flex flex-col gap-2">
+                                    <input type="hidden" id="canalEditId">
+                                    <input type="text" id="canalNombre" placeholder="Nombre del contacto *" class="w-full p-2 border border-slate-300 rounded-lg text-sm outline-none focus:border-brand-500">
+                                    <input type="text" id="canalCargo" placeholder="Cargo o área (opcional)" class="w-full p-2 border border-slate-300 rounded-lg text-sm outline-none focus:border-brand-500">
+                                    <div class="flex gap-2">
+                                        <select id="canalTipo" class="p-2 border border-slate-300 rounded-lg text-sm bg-white outline-none focus:border-brand-500 w-2/5">
+                                            <option value="WhatsApp">WhatsApp</option>
+                                            <option value="Teléfono">Teléfono</option>
+                                            <option value="Email">Email</option>
+                                            <option value="Otro">Otro</option>
+                                        </select>
+                                        <input type="text" id="canalValor" placeholder="Número o correo *" class="flex-1 p-2 border border-slate-300 rounded-lg text-sm outline-none focus:border-brand-500">
+                                    </div>
+                                    <input type="text" id="canalNotas" placeholder="Notas (horario, preferencias…)" class="w-full p-2 border border-slate-300 rounded-lg text-sm outline-none focus:border-brand-500">
+                                    <div class="flex justify-end gap-2 pt-1">
+                                        <button data-accion="cancelar-canal" class="text-xs font-semibold text-slate-500 hover:text-slate-700 px-3 py-1.5">Cancelar</button>
+                                        <button data-accion="guardar-canal" class="bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold px-4 py-1.5 rounded-lg transition-colors">Guardar canal</button>
+                                    </div>
+                                </div>
+
+                                <div id="listaCanales" class="flex flex-col gap-2"></div>
+                            </div>
+
+                            <!-- Panel: Seguimiento de pendientes -->
+                            <div class="xl:col-span-2 bg-white border border-slate-200 rounded-xl p-4">
+                                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-3">
+                                    <h4 class="text-sm font-bold text-slate-800 uppercase tracking-wide">Seguimiento de pendientes</h4>
+                                    <div class="flex items-center gap-2 no-print">
+                                        <select id="filtroSeguimientos" class="p-2 border border-slate-300 rounded-lg text-xs bg-white outline-none focus:border-brand-500">
+                                            <option value="abiertos">Abiertos</option>
+                                            <option value="todos">Todos</option>
+                                            <option value="concluidos">Concluidos</option>
+                                        </select>
+                                        <button data-accion="nuevo-seg" class="bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold px-3 py-2 rounded-lg transition-colors">+ Nuevo seguimiento</button>
+                                    </div>
+                                </div>
+
+                                <div id="formSeguimiento" class="hidden no-print bg-slate-50 border border-slate-200 rounded-lg p-3 mb-4 flex flex-col gap-2">
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                        <select id="segOrden" class="p-2 border border-slate-300 rounded-lg text-sm bg-white outline-none focus:border-brand-500 sm:col-span-2"></select>
+                                        <input type="text" id="segTitulo" placeholder="Asunto del seguimiento *" class="p-2 border border-slate-300 rounded-lg text-sm outline-none focus:border-brand-500 sm:col-span-2">
+                                        <select id="segTipo" class="p-2 border border-slate-300 rounded-lg text-sm bg-white outline-none focus:border-brand-500">
+                                            <option>Correctivo</option>
+                                            <option>Preventivo en curso</option>
+                                            <option>Cotización</option>
+                                            <option>Entrega</option>
+                                            <option>Otro</option>
+                                        </select>
+                                        <select id="segPrioridad" class="p-2 border border-slate-300 rounded-lg text-sm bg-white outline-none focus:border-brand-500">
+                                            <option>Alta</option>
+                                            <option selected>Media</option>
+                                            <option>Baja</option>
+                                        </select>
+                                        <select id="segEstatus" class="p-2 border border-slate-300 rounded-lg text-sm bg-white outline-none focus:border-brand-500 sm:col-span-2"></select>
+                                    </div>
+                                    <textarea id="segDescripcion" rows="2" placeholder="Descripción o acuerdo inicial con el cliente…" class="w-full p-2 border border-slate-300 rounded-lg text-sm outline-none focus:border-brand-500 resize-y"></textarea>
+                                    <div class="flex justify-end gap-2 pt-1">
+                                        <button data-accion="cancelar-seg" class="text-xs font-semibold text-slate-500 hover:text-slate-700 px-3 py-1.5">Cancelar</button>
+                                        <button data-accion="guardar-seg" class="bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold px-4 py-1.5 rounded-lg transition-colors">Crear seguimiento</button>
+                                    </div>
+                                </div>
+
+                                <div id="listaSeguimientos" class="flex flex-col gap-3"></div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -576,6 +691,25 @@
         </div>
     </div>
 
+    <!-- ============ v2.6: Modal de control de acceso ============ -->
+    <div id="modalAcceso" class="hidden fixed inset-0 bg-slate-950/95 backdrop-blur-sm items-center justify-center z-[70] no-print px-4">
+        <div class="bg-white w-full max-w-sm rounded-2xl shadow-2xl p-8 fade-in">
+            <div class="flex flex-col items-center text-center mb-6">
+                <div class="bg-brand-50 border border-brand-100 rounded-2xl p-3 mb-4">
+                    <svg class="w-8 h-8 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+                </div>
+                <h2 class="text-xl font-bold text-slate-900 tracking-tight">Ingenieros Asociados</h2>
+                <p class="text-sm text-slate-500 mt-1">Plataforma de gestión de mantenimiento. Identifícate para entrar; cada ingreso queda registrado en la bitácora.</p>
+            </div>
+            <form id="formAcceso" class="flex flex-col gap-3" autocomplete="off">
+                <input type="text" id="accesoNombre" placeholder="Nombre completo" required class="w-full p-3 border border-slate-300 rounded-xl text-sm outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-300">
+                <input type="password" id="accesoPin" placeholder="PIN de acceso" inputmode="numeric" class="hidden w-full p-3 border border-slate-300 rounded-xl text-sm outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-300">
+                <p id="accesoError" class="hidden text-xs font-semibold text-red-600 text-center"></p>
+                <button type="submit" class="bg-slate-900 hover:bg-slate-800 text-white font-semibold py-3 rounded-xl shadow-sm transition-colors mt-1">Entrar al panel</button>
+            </form>
+        </div>
+    </div>
+
     <script>
         Chart.register(ChartDataLabels);
 
@@ -606,6 +740,45 @@
         ];
 
         const MESES_ES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+
+        /* ============================================================
+           v2.6 — SEGURIDAD, BITÁCORA Y SINCRONIZACIÓN
+           Requiere desplegar Code.gs como Web App de Google Apps Script
+           (Ejecutar como: yo · Acceso: cualquier usuario) y pegar aquí
+           la URL /exec y el mismo token definido en Code.gs.
+           ============================================================ */
+        const VERSION_APP = '2.6';
+
+        // URL del Web App de Apps Script (termina en /exec). Vacío = sin backend.
+        const URL_APPS_SCRIPT = '';
+
+        // Debe coincidir con TOKEN en Code.gs.
+        const TOKEN_API = '';
+
+        // Origen de los datos de las hojas:
+        //  'csv'        → CSV publicados (comportamiento original)
+        //  'appsscript' → vía Code.gs con token (permite DESPUBLICAR los CSV,
+        //                 con lo que la hoja deja de ser pública)
+        const ORIGEN_DATOS = 'csv';
+
+        // Control de acceso a la página:
+        //  - Se activa cuando hay PIN definido o hay backend configurado.
+        //  - pin: ''  → solo pide nombre (identificación) y lo registra.
+        //  - pin: '1234' → además exige el PIN; los intentos fallidos
+        //    también quedan en la bitácora.
+        const CONTROL_ACCESO = { habilitado: true, pin: '', diasSesion: 30 };
+
+        // Catálogos de la pestaña Comunicación y Seguimiento
+        const ESTATUS_SEGUIMIENTO = ['Abierto', 'En proceso', 'Esperando refacción', 'Esperando al cliente', 'Cotización enviada', 'Concluido'];
+        const CLASES_ESTATUS = {
+            'Abierto':              'bg-amber-100 text-amber-700',
+            'En proceso':           'bg-blue-100 text-blue-700',
+            'Esperando refacción':  'bg-purple-100 text-purple-700',
+            'Esperando al cliente': 'bg-slate-200 text-slate-700',
+            'Cotización enviada':   'bg-brand-100 text-brand-700',
+            'Concluido':            'bg-green-100 text-green-700'
+        };
+        const CLASES_PRIORIDAD = { 'Alta': 'bg-red-100 text-red-700', 'Media': 'bg-amber-100 text-amber-700', 'Baja': 'bg-slate-100 text-slate-600' };
 
         /* ============================================================
            UTILIDADES
@@ -651,44 +824,79 @@
         const csvUrlDashboard = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTX8QjDtAKXCfIUI4Uc2FENvOfBh-XCoxjBGWiTxRkqHQ3YjnvY3TnZf7FqJsn2o3yAyhV0ge78nJea/pub?gid=570492353&single=true&output=csv';
         const csvUrlCorpus = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTX8QjDtAKXCfIUI4Uc2FENvOfBh-XCoxjBGWiTxRkqHQ3YjnvY3TnZf7FqJsn2o3yAyhV0ge78nJea/pub?gid=680282818&single=true&output=csv';
 
+        // v2.6: origen de datos configurable (CSV publicado o proxy de Apps Script)
+        function urlDatos(hoja) {
+            if (ORIGEN_DATOS === 'appsscript' && hayBackend()) {
+                return URL_APPS_SCRIPT + '?accion=datos&hoja=' + hoja + '&token=' + encodeURIComponent(TOKEN_API) + '&t=' + Date.now();
+            }
+            return (hoja === 'dashboard' ? csvUrlDashboard : csvUrlCorpus) + '&t=' + Date.now();
+        }
+
         async function cargarDatos() {
-            try {
-                const [respDashboard, respCorpus] = await Promise.all([
-                    fetch(csvUrlDashboard + '&t=' + new Date().getTime()),
-                    fetch(csvUrlCorpus + '&t=' + new Date().getTime())
-                ]);
+            document.getElementById('loadingBanner').style.display = 'block';
+            document.getElementById('errorBanner').classList.add('hidden');
+            document.getElementById('avisoBanner').classList.add('hidden');
 
-                if (!respDashboard.ok || !respCorpus.ok) throw new Error("Fallo en la red al descargar los documentos.");
+            // v2.6: descargas independientes; la hoja de órdenes es obligatoria,
+            // la de KPIs solo degrada los indicadores superiores si falla.
+            const [rDash, rCorpus] = await Promise.allSettled([
+                fetch(urlDatos('dashboard')),
+                fetch(urlDatos('corpus'))
+            ]);
 
-                const csvTextoDashboard = await respDashboard.text();
-                const csvTextoCorpus = await respCorpus.text();
+            let csvTextoDashboard = null, csvTextoCorpus = null;
+            try { if (rDash.status === 'fulfilled' && rDash.value.ok) csvTextoDashboard = await rDash.value.text(); } catch (_) {}
+            try { if (rCorpus.status === 'fulfilled' && rCorpus.value.ok) csvTextoCorpus = await rCorpus.value.text(); } catch (_) {}
 
+            if (!csvTextoCorpus) {
+                mostrarError("Error de Conexión: no fue posible descargar las órdenes de trabajo. Verifica que la hoja siga publicada (o la configuración de Apps Script) y tu conexión a internet.");
+                return;
+            }
+
+            datosAgrupadosPorMes = [];
+            if (csvTextoDashboard) {
                 Papa.parse(csvTextoDashboard, {
                     header: true, skipEmptyLines: true,
                     transformHeader: function(h) { return h.trim().toLowerCase(); },
                     complete: function(results) { datosAgrupadosPorMes = results.data; }
                 });
-
-                Papa.parse(csvTextoCorpus, {
-                    header: true, skipEmptyLines: true,
-                    transformHeader: function(h) { return normalizar(h.trim().toLowerCase()); },
-                    complete: function(results) { procesarDatosCorpus(results.data); }
-                });
-
-                // FIX: PapaParse sobre strings es síncrono; ya no hace falta el setTimeout
-                document.getElementById('loadingBanner').style.display = 'none';
-                generarSidebarClientes();
-                mostrarDashboard();
-
-            } catch (error) {
-                mostrarError("Error de Conexión: " + error.message);
+            } else {
+                mostrarAviso("No se pudo descargar la hoja de KPIs mensuales; los indicadores superiores se muestran en cero. El resto del panel funciona con normalidad.");
             }
+
+            Papa.parse(csvTextoCorpus, {
+                header: true, skipEmptyLines: true,
+                transformHeader: function(h) { return normalizar(h.trim().toLowerCase()); },
+                complete: function(results) { procesarDatosCorpus(results.data); }
+            });
+
+            document.getElementById('loadingBanner').style.display = 'none';
+            document.getElementById('ultimaActualizacion').innerText =
+                'Datos actualizados: ' + new Date().toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' });
+
+            generarSidebarClientes(document.getElementById('buscadorClientes').value || '');
+
+            // Si estábamos viendo un cliente, conservar la vista tras refrescar
+            if (clienteActual && clientesUnicos.includes(clienteActual)) {
+                mostrarVistaCliente(clienteActual);
+            } else {
+                clienteActual = '';
+                mostrarDashboard();
+            }
+
+            // v2.6: sincronizar canales/seguimientos con el backend (si existe)
+            sincronizarComRemoto();
         }
 
         function mostrarError(mensaje) {
             document.getElementById('loadingBanner').style.display = 'none';
             document.getElementById('errorBanner').classList.remove('hidden');
             document.getElementById('errorTexto').innerText = mensaje;
+        }
+
+        function mostrarAviso(mensaje) {
+            document.getElementById('avisoBanner').classList.remove('hidden');
+            document.getElementById('avisoTexto').innerText = mensaje;
         }
 
         /* ============================================================
@@ -1051,26 +1259,33 @@
 
             renderTablaPreventivos();
             renderTablaCorrectivos();
+
+            // v2.6: preparar pestaña de Comunicación y Seguimiento
+            document.getElementById('formCanal').classList.add('hidden');
+            document.getElementById('formSeguimiento').classList.add('hidden');
+            document.getElementById('filtroSeguimientos').value = 'abiertos';
+            renderComunicacion();
+            registrarVistaCliente(clienteNombre);
+
             cambiarPestana('prev');
         }
 
+        // v2.6: pestañas generalizadas (prev / corr / com)
         function cambiarPestana(tab) {
-            const tPrev = document.getElementById('tabPrev');
-            const tCorr = document.getElementById('tabCorr');
-            const cPrev = document.getElementById('contentPrev');
-            const cCorr = document.getElementById('contentCorr');
-
-            if (tab === 'prev') {
-                tPrev.className = "py-4 px-2 text-sm focus:outline-none tab-active transition-colors";
-                tCorr.className = "py-4 px-2 text-sm focus:outline-none tab-inactive transition-colors hover:text-slate-800";
-                cPrev.style.display = 'block';
-                cCorr.style.display = 'none';
-            } else {
-                tCorr.className = "py-4 px-2 text-sm focus:outline-none tab-active transition-colors";
-                tPrev.className = "py-4 px-2 text-sm focus:outline-none tab-inactive transition-colors hover:text-slate-800";
-                cCorr.style.display = 'block';
-                cPrev.style.display = 'none';
-            }
+            const defs = {
+                prev: ['tabPrev', 'contentPrev'],
+                corr: ['tabCorr', 'contentCorr'],
+                com:  ['tabCom',  'contentCom']
+            };
+            Object.entries(defs).forEach(([clave, [idBtn, idCont]]) => {
+                const btn = document.getElementById(idBtn);
+                const cont = document.getElementById(idCont);
+                const activo = clave === tab;
+                btn.classList.toggle('tab-active', activo);
+                btn.classList.toggle('tab-inactive', !activo);
+                cont.style.display = activo ? 'block' : 'none';
+            });
+            if (tab === 'com') renderComunicacion();
         }
 
         /* ============================================================
@@ -1115,9 +1330,11 @@
             link.download = `Mantenimientos_Preventivos_${clienteActual.replace(/\s+/g, '_')}.csv`;
             link.click();
             URL.revokeObjectURL(link.href);
+            registrarEvento('exportar_csv', filtrados.length + ' registros'); // v2.6 bitácora
         }
 
         function imprimirTablaPrev() {
+            registrarEvento('imprimir_tabla', 'Preventivos'); // v2.6 bitácora
             window.print();
         }
 
@@ -1133,7 +1350,10 @@
                 return;
             }
 
+            // v2.6: comparar contra el inicio del día local para que un
+            // mantenimiento que vence HOY no aparezca como "vencido"
             const hoy = new Date();
+            hoy.setHours(0, 0, 0, 0);
             filtrados.forEach(d => {
                 // MEJORA: alerta visual de mantenimiento vencido
                 const vencido = d.ProximoMantDate && d.ProximoMantDate < hoy;
@@ -1565,6 +1785,7 @@
         window.addEventListener('afterprint', restaurarCanvasImpresion);
 
         function imprimirRutina() {
+            registrarEvento('imprimir_rutina', 'Folio ' + document.getElementById('rutFolio').innerText); // v2.6 bitácora
             window.print();
         }
 
@@ -1697,33 +1918,37 @@
 
             actualizarGraficas(cargaMap, tiposMap, clientesMap, marcasMap);
 
-            const btnCard = document.getElementById('card-ventas');
-            if (btnCard) {
-                const newBtnCard = btnCard.cloneNode(true);
-                btnCard.parentNode.replaceChild(newBtnCard, btnCard);
-                newBtnCard.addEventListener('click', () => {
-                    const tbody = document.getElementById('listaOportunidades');
-                    tbody.innerHTML = '';
-                    const oportunidades = datosFiltradosCorpus.filter(d => d.oportunidad);
-                    if (oportunidades.length === 0) {
-                        tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-8 text-center text-slate-500">No hay oportunidades de venta detectadas.</td></tr>';
-                    } else {
-                        oportunidades.forEach(op => {
-                            const tr = document.createElement('tr');
-                            tr.classList.add('hover:bg-slate-50', 'transition-colors');
-                            tr.innerHTML = `
-                                <td class="px-4 py-3 font-bold text-brand-600 whitespace-nowrap">${esc(op.ID)}</td>
-                                <td class="px-4 py-3 text-slate-800 font-medium">${esc(op.Cliente)}</td>
-                                <td class="px-4 py-3 text-slate-500">${esc(op.Equipo)}</td>
-                                <td class="px-4 py-3"><span class="bg-slate-100 text-slate-600 px-2 py-1 rounded-md text-xs font-bold border border-slate-200">${esc(op.Ingeniero)}</span></td>
-                                <td class="px-4 py-3 text-xs text-slate-500 italic whitespace-normal min-w-[250px] break-words">${esc(op.motivo_venta)}</td>
-                            `;
-                            tbody.appendChild(tr);
-                        });
-                    }
-                    document.getElementById('modalOportunidades').classList.remove('hidden');
+            // v2.6: se guarda la lista filtrada y un único listener abre el modal
+            // (antes se clonaba el nodo en cada render para reemplazar el listener)
+            oportunidadesVisibles = datosFiltradosCorpus.filter(d => d.oportunidad);
+        }
+
+        let oportunidadesVisibles = [];
+
+        function abrirModalOportunidades() {
+            const tbody = document.getElementById('listaOportunidades');
+            tbody.innerHTML = '';
+            if (oportunidadesVisibles.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-8 text-center text-slate-500">No hay oportunidades de venta detectadas.</td></tr>';
+            } else {
+                oportunidadesVisibles.forEach(op => {
+                    const tr = document.createElement('tr');
+                    tr.classList.add('hover:bg-slate-50', 'transition-colors');
+                    tr.innerHTML = `
+                        <td class="px-4 py-3 font-bold text-brand-600 whitespace-nowrap">${esc(op.ID)}</td>
+                        <td class="px-4 py-3 text-slate-800 font-medium">${esc(op.Cliente)}</td>
+                        <td class="px-4 py-3 text-slate-500">${esc(op.Equipo)}</td>
+                        <td class="px-4 py-3"><span class="bg-slate-100 text-slate-600 px-2 py-1 rounded-md text-xs font-bold border border-slate-200">${esc(op.Ingeniero)}</span></td>
+                        <td class="px-4 py-3 text-xs text-slate-500 italic whitespace-normal min-w-[250px] break-words">${esc(op.motivo_venta)}</td>
+                    `;
+                    tbody.appendChild(tr);
                 });
             }
+            document.getElementById('modalOportunidades').classList.remove('hidden');
+        }
+
+        if (document.getElementById('card-ventas')) {
+            document.getElementById('card-ventas').addEventListener('click', abrirModalOportunidades);
         }
 
         function actualizarGraficas(carga, tipos, clientes, marcas) {
@@ -1800,7 +2025,640 @@
             });
         }
 
-        window.onload = cargarDatos;
+        /* ============================================================
+           v2.6 — SEGURIDAD: SESIÓN, CONTROL DE ACCESO Y BITÁCORA
+           ============================================================ */
+        function hayBackend() { return String(URL_APPS_SCRIPT || '').trim() !== ''; }
+        function gateActivo() { return !!(CONTROL_ACCESO && CONTROL_ACCESO.habilitado && (String(CONTROL_ACCESO.pin || '') !== '' || hayBackend())); }
+
+        function sesionActual() {
+            try {
+                const s = JSON.parse(localStorage.getItem('ia_sesion') || 'null');
+                if (!s || !s.nombre) return null;
+                const dias = (Date.now() - (s.ts || 0)) / 86400000;
+                if (dias > (CONTROL_ACCESO.diasSesion || 30)) return null;
+                return s;
+            } catch (_) { return null; }
+        }
+        function nombreUsuario() { const s = sesionActual(); return s ? s.nombre : 'Sin identificar'; }
+        function guardarSesion(nombre) { localStorage.setItem('ia_sesion', JSON.stringify({ nombre: nombre, ts: Date.now() })); }
+
+        function mostrarUsuarioSidebar() {
+            const f = document.getElementById('sidebarFooter');
+            const s = sesionActual();
+            if (s && gateActivo()) {
+                f.classList.remove('hidden');
+                const u = document.getElementById('sidebarUsuario');
+                u.innerText = s.nombre; u.title = s.nombre;
+            } else {
+                f.classList.add('hidden');
+            }
+        }
+
+        // Envía un evento a la bitácora del backend (fire-and-forget).
+        // Sin backend configurado solo queda constancia en la consola.
+        function registrarEvento(tipo, detalle = '', extra = {}) {
+            const payload = Object.assign({
+                accion: 'log', token: TOKEN_API,
+                tipo: tipo, detalle: detalle,
+                usuario: nombreUsuario(),
+                cliente: clienteActual || '',
+                fecha: new Date().toISOString(),
+                url: location.href,
+                referencia: document.referrer || '',
+                userAgent: navigator.userAgent,
+                plataforma: navigator.platform || '',
+                pantalla: (screen && screen.width ? screen.width + 'x' + screen.height : ''),
+                zonaHoraria: (Intl.DateTimeFormat().resolvedOptions().timeZone || '')
+            }, extra);
+
+            if (!hayBackend()) { console.info('[Bitácora local]', payload); return; }
+            try {
+                const cuerpo = JSON.stringify(payload);
+                if (navigator.sendBeacon) {
+                    navigator.sendBeacon(URL_APPS_SCRIPT, new Blob([cuerpo], { type: 'text/plain;charset=utf-8' }));
+                } else {
+                    fetch(URL_APPS_SCRIPT, { method: 'POST', mode: 'no-cors', keepalive: true, headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: cuerpo });
+                }
+            } catch (_) { /* nunca bloquear la app por la bitácora */ }
+        }
+
+        // Registrar la primera visita a cada cliente por sesión (sin spam)
+        const clientesVistosSesion = new Set();
+        function registrarVistaCliente(nombre) {
+            if (clientesVistosSesion.has(nombre)) return;
+            clientesVistosSesion.add(nombre);
+            registrarEvento('ver_cliente', nombre);
+        }
+
+        let intentosPinFallidos = 0;
+        function mostrarModalAcceso() {
+            const m = document.getElementById('modalAcceso');
+            m.classList.remove('hidden'); m.classList.add('flex');
+            const pinInput = document.getElementById('accesoPin');
+            if (String(CONTROL_ACCESO.pin || '') !== '') {
+                pinInput.classList.remove('hidden');
+                pinInput.required = true;
+            }
+            setTimeout(() => document.getElementById('accesoNombre').focus(), 60);
+        }
+
+        document.getElementById('formAcceso').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const nombre = document.getElementById('accesoNombre').value.trim();
+            const pinIngresado = document.getElementById('accesoPin').value;
+            const errorEl = document.getElementById('accesoError');
+            const pinCfg = String(CONTROL_ACCESO.pin || '');
+
+            if (!nombre) {
+                errorEl.innerText = 'Escribe tu nombre para continuar.';
+                errorEl.classList.remove('hidden');
+                return;
+            }
+            if (pinCfg !== '' && pinIngresado !== pinCfg) {
+                intentosPinFallidos++;
+                registrarEvento('intento_pin_fallido', 'Intento ' + intentosPinFallidos, { nombreIngresado: nombre });
+                errorEl.innerText = 'PIN incorrecto. El intento quedó registrado en la bitácora.';
+                errorEl.classList.remove('hidden');
+                document.getElementById('accesoPin').value = '';
+                document.getElementById('accesoPin').focus();
+                return;
+            }
+
+            guardarSesion(nombre);
+            errorEl.classList.add('hidden');
+            const m = document.getElementById('modalAcceso');
+            m.classList.add('hidden'); m.classList.remove('flex');
+            mostrarUsuarioSidebar();
+            registrarEvento('acceso', pinCfg !== '' ? 'Ingreso con PIN' : 'Ingreso identificado');
+            cargarDatos();
+        });
+
+        document.getElementById('btnCerrarSesion').addEventListener('click', () => {
+            registrarEvento('cierre_sesion');
+            localStorage.removeItem('ia_sesion');
+            location.reload();
+        });
+
+        /* ============================================================
+           v2.6 — COMUNICACIÓN Y SEGUIMIENTO POR CLIENTE
+           Canales de contacto + bitácora de pendientes.
+           Persistencia: localStorage siempre; si hay backend de Apps
+           Script, los registros se sincronizan entre dispositivos
+           mediante una cola de cambios con reintentos.
+           ============================================================ */
+        const LS_COM = 'ia_comseg_v1';
+        let comData = { canales: [], seguimientos: [] };
+        let comCola = [];
+        let comSincronizando = false;
+        let comProcesandoCola = false;
+        let comUltimaSync = null;
+
+        function cargarComLocal() {
+            try {
+                const d = JSON.parse(localStorage.getItem(LS_COM) || 'null');
+                if (d) {
+                    comData.canales = Array.isArray(d.canales) ? d.canales : [];
+                    comData.seguimientos = Array.isArray(d.seguimientos) ? d.seguimientos : [];
+                    comCola = Array.isArray(d.cola) ? d.cola : [];
+                }
+            } catch (_) { /* almacenamiento corrupto: se parte de cero */ }
+        }
+        function guardarComLocal() {
+            try {
+                localStorage.setItem(LS_COM, JSON.stringify({ canales: comData.canales, seguimientos: comData.seguimientos, cola: comCola }));
+            } catch (_) { /* cuota llena: se conserva lo que está en memoria */ }
+        }
+
+        const uid = () => 'id-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7);
+        const ahoraISO = () => new Date().toISOString();
+        const soloDigitos = (v) => String(v || '').replace(/[^\d]/g, '');
+
+        function fmtFechaCorta(iso) {
+            const d = new Date(iso);
+            if (isNaN(d)) return '';
+            return d.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: '2-digit' }) +
+                   ' ' + d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+        }
+
+        // ---- WhatsApp: números MX de 10 dígitos reciben la lada 52 ----
+        function normalizarWhatsApp(v) {
+            let d = soloDigitos(v);
+            if (d.length === 10) d = '52' + d;
+            return d;
+        }
+        function urlWhatsApp(numero, texto) {
+            const t = encodeURIComponent(texto || '');
+            return numero ? ('https://wa.me/' + numero + '?text=' + t) : ('https://wa.me/?text=' + t);
+        }
+        function mensajeWhatsAppCanal(c) {
+            const yo = nombreUsuario();
+            return 'Hola' + (c.nombre ? ' ' + c.nombre : '') + ', le saluda ' +
+                (yo !== 'Sin identificar' ? yo + ' de ' : '') +
+                'Ingenieros Asociados. Le escribimos para dar seguimiento a los servicios de mantenimiento en ' + clienteActual + '.';
+        }
+        function mensajeWhatsAppSeguimiento(s) {
+            const ult = (s.historial && s.historial.length) ? s.historial[s.historial.length - 1] : null;
+            const lineas = [
+                '*Ingenieros Asociados* · Seguimiento de servicio',
+                'Unidad: ' + s.cliente,
+                s.ordenId ? ('Orden: #' + s.ordenId + (s.ordenResumen ? ' — ' + s.ordenResumen : '')) : null,
+                'Asunto: ' + s.titulo,
+                'Estatus: ' + s.estatus,
+                '',
+                (ult && ult.nota) ? ult.nota : (s.descripcion || ''),
+                '',
+                'Quedamos atentos a sus comentarios. Saludos.'
+            ].filter(l => l !== null);
+            return lineas.join('\n');
+        }
+
+        // ---- Sincronización con Apps Script ----
+        function encolarCom(tipo, registro) {
+            comCola.push({ tipo: tipo, registro: JSON.parse(JSON.stringify(registro)) });
+        }
+
+        async function sincronizarComRemoto() {
+            actualizarEstadoSync();
+            if (!hayBackend()) return;
+            comSincronizando = true; actualizarEstadoSync();
+            try {
+                const r = await fetch(URL_APPS_SCRIPT + '?accion=seguimiento&token=' + encodeURIComponent(TOKEN_API) + '&t=' + Date.now());
+                const j = await r.json();
+                if (j && j.ok) {
+                    fusionarComRemoto('canales', j.canales || []);
+                    fusionarComRemoto('seguimientos', j.seguimientos || []);
+                    guardarComLocal();
+                    comUltimaSync = new Date();
+                    if (clienteActual) renderComunicacion();
+                }
+            } catch (err) {
+                console.warn('Sincronización de seguimiento no disponible:', err);
+            }
+            comSincronizando = false; actualizarEstadoSync();
+            procesarColaCom();
+        }
+
+        // Fusión última-escritura-gana por "actualizado"; los eliminados se
+        // conservan como lápidas (tombstones) para que el borrado también viaje.
+        function fusionarComRemoto(clave, remotos) {
+            const map = {};
+            (comData[clave] || []).forEach(r => { if (r && r.id) map[r.id] = r; });
+            remotos.forEach(rem => {
+                let obj = null;
+                try { obj = (typeof rem.json === 'string' && rem.json) ? JSON.parse(rem.json) : rem.json; } catch (_) {}
+                if (!obj || !obj.id) return;
+                if (rem.eliminado === true) obj.eliminado = true;
+                const loc = map[obj.id];
+                if (!loc || String(obj.actualizado || '') > String(loc.actualizado || '')) map[obj.id] = obj;
+            });
+            comData[clave] = Object.values(map);
+        }
+
+        async function procesarColaCom() {
+            if (!hayBackend() || comSincronizando) { actualizarEstadoSync(); return; }
+            if (comProcesandoCola) return;
+            comProcesandoCola = true;
+            while (comCola.length) {
+                const op = comCola[0];
+                try {
+                    const r = await fetch(URL_APPS_SCRIPT, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        body: JSON.stringify({ accion: 'guardar', token: TOKEN_API, tipo: op.tipo, registro: op.registro })
+                    });
+                    const j = await r.json().catch(() => null);
+                    if (!j || !j.ok) throw new Error((j && j.error) || 'Respuesta inválida del servidor');
+                    comCola.shift();
+                    guardarComLocal();
+                } catch (err) {
+                    console.warn('Cambio pendiente de sincronizar:', err);
+                    break;
+                }
+            }
+            comProcesandoCola = false;
+            actualizarEstadoSync();
+        }
+
+        function actualizarEstadoSync() {
+            const dot = document.getElementById('comSyncDot');
+            const txt = document.getElementById('comSyncTexto');
+            const btn = document.getElementById('comSyncEstado');
+            if (!dot || !txt) return;
+            const base = 'w-2 h-2 rounded-full inline-block ';
+            if (comSincronizando) {
+                dot.className = base + 'bg-amber-400 animate-pulse';
+                txt.innerText = 'Sincronizando…';
+                btn.title = 'Sincronizando con el servidor';
+            } else if (!hayBackend()) {
+                dot.className = base + 'bg-slate-300';
+                txt.innerText = 'Guardado en este equipo';
+                btn.title = 'Sin backend configurado: los registros viven solo en este navegador. Configura URL_APPS_SCRIPT para compartirlos.';
+            } else if (comCola.length > 0) {
+                dot.className = base + 'bg-amber-500';
+                txt.innerText = comCola.length + ' cambio(s) por enviar';
+                btn.title = 'Hay cambios guardados localmente pendientes de subir. Clic para reintentar.';
+            } else {
+                dot.className = base + 'bg-green-500';
+                txt.innerText = 'Sincronizado' + (comUltimaSync ? ' · ' + comUltimaSync.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : '');
+                btn.title = 'Los canales y seguimientos están sincronizados con Google Sheets.';
+            }
+        }
+
+        // ---- Utilerías de render ----
+        const chip = (txt, cls) => '<span class="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide ' + cls + '">' + esc(txt) + '</span>';
+        const canalesDelCliente = () => comData.canales.filter(c => c.cliente === clienteActual && !c.eliminado);
+        const seguimientosDelCliente = () => comData.seguimientos.filter(s => s.cliente === clienteActual && !s.eliminado);
+
+        function actualizarBadgeCom() {
+            const badge = document.getElementById('comBadge');
+            if (!badge) return;
+            const abiertos = clienteActual ? seguimientosDelCliente().filter(s => s.estatus !== 'Concluido').length : 0;
+            badge.innerText = abiertos;
+            badge.classList.toggle('hidden', abiertos === 0);
+        }
+
+        function poblarSelectEstatus(sel, actual) {
+            sel.innerHTML = '';
+            ESTATUS_SEGUIMIENTO.forEach(e => {
+                const opt = document.createElement('option');
+                opt.value = e; opt.innerText = e;
+                if (e === actual) opt.selected = true;
+                sel.appendChild(opt);
+            });
+        }
+
+        function poblarSelectOrdenes() {
+            const sel = document.getElementById('segOrden');
+            sel.innerHTML = '';
+            const opt0 = document.createElement('option');
+            opt0.value = ''; opt0.innerText = 'Sin orden vinculada';
+            sel.appendChild(opt0);
+            datosDetalleOrdenes
+                .filter(d => d.Cliente === clienteActual)
+                .slice()
+                .sort((a, b) => (b.FechaObj ? b.FechaObj.getTime() : 0) - (a.FechaObj ? a.FechaObj.getTime() : 0))
+                .forEach(o => {
+                    const opt = document.createElement('option');
+                    opt.value = o.ID;
+                    opt.innerText = '#' + o.ID + ' · ' + o.Equipo + ' — ' + (o['Tipo de Servicio'] || 'Servicio') + ' (' + o.FechaEjecucionStr + ')';
+                    sel.appendChild(opt);
+                });
+        }
+
+        function renderComunicacion() {
+            if (!clienteActual) return;
+            poblarSelectOrdenes();
+            poblarSelectEstatus(document.getElementById('segEstatus'), 'Abierto');
+            renderCanales();
+            renderSeguimientos();
+            actualizarBadgeCom();
+            actualizarEstadoSync();
+        }
+
+        function renderCanales() {
+            const cont = document.getElementById('listaCanales');
+            const canales = canalesDelCliente().slice().sort((a, b) => String(a.nombre).localeCompare(String(b.nombre)));
+            if (canales.length === 0) {
+                cont.innerHTML = '<div class="border-2 border-dashed border-slate-300 rounded-lg p-4 text-center text-xs text-slate-500">Aún no hay canales registrados para esta unidad.<br>Agrega el primero para dar seguimiento por WhatsApp, teléfono o correo.</div>';
+                return;
+            }
+            cont.innerHTML = canales.map(c => {
+                let accionPrincipal = '';
+                if (c.tipo === 'WhatsApp') {
+                    accionPrincipal = '<button data-accion="wa-canal" data-id="' + esc(c.id) + '" class="bg-green-600 hover:bg-green-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors">WhatsApp</button>';
+                } else if (c.tipo === 'Teléfono') {
+                    accionPrincipal = '<a href="tel:' + esc(soloDigitos(c.valor)) + '" class="bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors">Llamar</a>';
+                } else if (c.tipo === 'Email') {
+                    accionPrincipal = '<a href="mailto:' + esc(c.valor) + '" class="bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors">Correo</a>';
+                }
+                return '<div class="bg-white border border-slate-200 rounded-lg p-3 flex flex-col gap-1">' +
+                    '<div class="flex justify-between items-start gap-2">' +
+                        '<div class="min-w-0"><p class="text-sm font-bold text-slate-800 truncate">' + esc(c.nombre) + '</p>' +
+                        (c.cargo ? '<p class="text-xs text-slate-500 truncate">' + esc(c.cargo) + '</p>' : '') + '</div>' +
+                        chip(c.tipo, 'bg-slate-100 text-slate-600 shrink-0') +
+                    '</div>' +
+                    '<p class="text-sm text-slate-700 font-medium break-all">' + esc(c.valor) + '</p>' +
+                    (c.notas ? '<p class="text-xs text-slate-500 italic">' + esc(c.notas) + '</p>' : '') +
+                    '<div class="flex flex-wrap gap-2 pt-1.5 no-print">' + accionPrincipal +
+                        '<button data-accion="editar-canal" data-id="' + esc(c.id) + '" class="text-xs font-semibold text-slate-500 hover:text-slate-800 border border-slate-200 hover:border-slate-400 px-3 py-1.5 rounded-lg transition-colors">Editar</button>' +
+                        '<button data-accion="eliminar-canal" data-id="' + esc(c.id) + '" class="text-xs font-semibold text-red-400 hover:text-red-600 px-2 py-1.5 transition-colors">Eliminar</button>' +
+                    '</div></div>';
+            }).join('');
+        }
+
+        function renderSeguimientos() {
+            const cont = document.getElementById('listaSeguimientos');
+            const filtro = document.getElementById('filtroSeguimientos').value;
+            const prioridadOrden = { 'Alta': 0, 'Media': 1, 'Baja': 2 };
+
+            let lista = seguimientosDelCliente();
+            if (filtro === 'abiertos') lista = lista.filter(s => s.estatus !== 'Concluido');
+            if (filtro === 'concluidos') lista = lista.filter(s => s.estatus === 'Concluido');
+
+            lista = lista.slice().sort((a, b) => {
+                const ca = a.estatus === 'Concluido' ? 1 : 0, cb = b.estatus === 'Concluido' ? 1 : 0;
+                if (ca !== cb) return ca - cb;
+                const pa = prioridadOrden[a.prioridad] ?? 1, pb = prioridadOrden[b.prioridad] ?? 1;
+                if (pa !== pb) return pa - pb;
+                return String(b.actualizado || '').localeCompare(String(a.actualizado || ''));
+            });
+
+            if (lista.length === 0) {
+                cont.innerHTML = '<div class="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center text-xs text-slate-500">No hay seguimientos ' + (filtro === 'concluidos' ? 'concluidos' : (filtro === 'abiertos' ? 'abiertos' : 'registrados')) + ' para esta unidad.<br>Crea uno para dar seguimiento puntual a correctivos, cotizaciones o mantenimientos en curso.</div>';
+                return;
+            }
+
+            const canalesWA = canalesDelCliente().filter(c => c.tipo === 'WhatsApp');
+
+            cont.innerHTML = lista.map(s => {
+                const concluido = s.estatus === 'Concluido';
+                const historial = (s.historial || []).slice().reverse().map(h =>
+                    '<div><p class="text-slate-400">' + esc(fmtFechaCorta(h.fecha)) + ' · ' + esc(h.autor || '') + ' · ' + chip(h.estatus || '', CLASES_ESTATUS[h.estatus] || 'bg-slate-100 text-slate-600') + '</p>' +
+                    '<p class="text-slate-700 whitespace-pre-wrap">' + esc(h.nota || '') + '</p></div>'
+                ).join('');
+
+                const selectWA = canalesWA.length > 0
+                    ? '<select data-wa-canal class="p-1.5 border border-slate-300 rounded-lg text-xs bg-white outline-none max-w-[11rem]">' +
+                        canalesWA.map(c => '<option value="' + esc(c.id) + '">' + esc(c.nombre) + '</option>').join('') +
+                      '</select>'
+                    : '<span class="text-[10px] text-slate-400 italic">Sin WhatsApp registrado: se abrirá el selector de contactos</span>';
+
+                const opcionesEstatus = ESTATUS_SEGUIMIENTO.map(e => '<option' + (e === s.estatus ? ' selected' : '') + '>' + esc(e) + '</option>').join('');
+
+                return '<div data-seg-card="' + esc(s.id) + '" class="border border-slate-200 rounded-xl p-4 flex flex-col gap-2 ' + (concluido ? 'bg-slate-50' : 'bg-white') + '">' +
+                    '<div class="flex flex-wrap items-center gap-2">' +
+                        chip(s.prioridad, CLASES_PRIORIDAD[s.prioridad] || 'bg-slate-100 text-slate-600') +
+                        chip(s.estatus, CLASES_ESTATUS[s.estatus] || 'bg-slate-100 text-slate-600') +
+                        chip(s.tipo, 'bg-slate-100 text-slate-500') +
+                        '<span class="text-[10px] text-slate-400 ml-auto">Creado: ' + esc(fmtFechaCorta(s.creado)) + '</span>' +
+                    '</div>' +
+                    '<div><p class="font-bold text-slate-800 text-sm">' + esc(s.titulo) + '</p>' +
+                    (s.ordenId ? '<p class="text-xs text-slate-500 mt-0.5">Orden #' + esc(s.ordenId) + (s.ordenResumen ? ' — ' + esc(s.ordenResumen) : '') + '</p>' : '') + '</div>' +
+                    (s.descripcion ? '<p class="text-xs text-slate-600 whitespace-pre-wrap">' + esc(s.descripcion) + '</p>' : '') +
+                    '<details class="text-xs"><summary class="cursor-pointer font-semibold text-slate-500 hover:text-slate-700 select-none">Historial (' + (s.historial ? s.historial.length : 0) + ')</summary>' +
+                        '<div class="mt-2 flex flex-col gap-2 border-l-2 border-slate-200 pl-3">' + (historial || '<p class="text-slate-400 italic">Sin registros.</p>') + '</div>' +
+                    '</details>' +
+                    (concluido ? '' :
+                    '<div class="no-print flex flex-col sm:flex-row gap-2 pt-1">' +
+                        '<select data-avance-estatus class="p-2 border border-slate-300 rounded-lg text-xs bg-white outline-none sm:w-44">' + opcionesEstatus + '</select>' +
+                        '<input type="text" data-avance-nota placeholder="Registrar avance o acuerdo con el cliente…" class="flex-1 p-2 border border-slate-300 rounded-lg text-xs outline-none focus:border-brand-500">' +
+                        '<button data-accion="guardar-avance" data-id="' + esc(s.id) + '" class="bg-slate-900 hover:bg-slate-700 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-colors">Registrar</button>' +
+                    '</div>') +
+                    '<div class="no-print flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100">' +
+                        selectWA +
+                        '<button data-accion="wa-seg" data-id="' + esc(s.id) + '" class="bg-green-600 hover:bg-green-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors">Enviar por WhatsApp</button>' +
+                        (concluido ? '<button data-accion="reabrir-seg" data-id="' + esc(s.id) + '" class="text-xs font-semibold text-slate-500 hover:text-slate-800 border border-slate-200 px-3 py-1.5 rounded-lg transition-colors">Reabrir</button>' : '') +
+                        '<button data-accion="eliminar-seg" data-id="' + esc(s.id) + '" class="text-xs font-semibold text-red-400 hover:text-red-600 px-2 py-1.5 ml-auto transition-colors">Eliminar</button>' +
+                    '</div></div>';
+            }).join('');
+        }
+
+        // ---- CRUD de canales y seguimientos ----
+        function guardarCanalDesdeFormulario() {
+            const idEdit = document.getElementById('canalEditId').value;
+            const nombre = document.getElementById('canalNombre').value.trim();
+            const cargo = document.getElementById('canalCargo').value.trim();
+            const tipo = document.getElementById('canalTipo').value;
+            const valor = document.getElementById('canalValor').value.trim();
+            const notas = document.getElementById('canalNotas').value.trim();
+
+            if (!nombre || !valor) { alert('El nombre del contacto y el número o correo son obligatorios.'); return; }
+            if ((tipo === 'WhatsApp' || tipo === 'Teléfono') && soloDigitos(valor).length < 8) {
+                alert('El número parece incompleto. Verifica que incluya los 10 dígitos.'); return;
+            }
+
+            const existente = idEdit ? comData.canales.find(c => c.id === idEdit) : null;
+            const reg = existente || { id: uid(), cliente: clienteActual, creado: ahoraISO() };
+            reg.nombre = nombre; reg.cargo = cargo; reg.tipo = tipo; reg.valor = valor; reg.notas = notas;
+            reg.actualizado = ahoraISO();
+            if (!existente) comData.canales.push(reg);
+
+            encolarCom('canal', reg);
+            guardarComLocal();
+            document.getElementById('formCanal').classList.add('hidden');
+            renderComunicacion();
+            registrarEvento(existente ? 'canal_editado' : 'canal_creado', tipo + ' · ' + nombre);
+            procesarColaCom();
+        }
+
+        function abrirFormCanal(canal) {
+            document.getElementById('canalEditId').value = canal ? canal.id : '';
+            document.getElementById('canalNombre').value = canal ? canal.nombre : '';
+            document.getElementById('canalCargo').value = canal ? (canal.cargo || '') : '';
+            document.getElementById('canalTipo').value = canal ? canal.tipo : 'WhatsApp';
+            document.getElementById('canalValor').value = canal ? canal.valor : '';
+            document.getElementById('canalNotas').value = canal ? (canal.notas || '') : '';
+            document.getElementById('formCanal').classList.remove('hidden');
+            document.getElementById('canalNombre').focus();
+        }
+
+        function eliminarCanal(id) {
+            const reg = comData.canales.find(c => c.id === id);
+            if (!reg) return;
+            if (!confirm('¿Eliminar el canal "' + reg.nombre + '"?')) return;
+            reg.eliminado = true;
+            reg.actualizado = ahoraISO();
+            encolarCom('canal', reg);
+            guardarComLocal();
+            renderComunicacion();
+            registrarEvento('canal_eliminado', reg.tipo + ' · ' + reg.nombre);
+            procesarColaCom();
+        }
+
+        function crearSeguimientoDesdeFormulario() {
+            const ordenId = document.getElementById('segOrden').value;
+            const titulo = document.getElementById('segTitulo').value.trim();
+            const tipo = document.getElementById('segTipo').value;
+            const prioridad = document.getElementById('segPrioridad').value;
+            const estatus = document.getElementById('segEstatus').value;
+            const descripcion = document.getElementById('segDescripcion').value.trim();
+
+            if (!titulo) { alert('Escribe el asunto del seguimiento.'); return; }
+
+            let ordenResumen = '';
+            if (ordenId) {
+                const o = datosDetalleOrdenes.find(d => d.ID === ordenId && d.Cliente === clienteActual);
+                if (o) ordenResumen = o.Equipo + ' · ' + o.Marca + ' ' + o.Modelo + ' · ' + (o['Tipo de Servicio'] || '') + ' · ' + o.FechaEjecucionStr;
+            }
+
+            const reg = {
+                id: uid(), cliente: clienteActual,
+                ordenId: ordenId || '', ordenResumen: ordenResumen,
+                titulo: titulo, tipo: tipo, prioridad: prioridad, estatus: estatus,
+                descripcion: descripcion,
+                creado: ahoraISO(), actualizado: ahoraISO(),
+                historial: [{ fecha: ahoraISO(), autor: nombreUsuario(), estatus: estatus, nota: descripcion || 'Seguimiento creado' }]
+            };
+            comData.seguimientos.push(reg);
+            encolarCom('seguimiento', reg);
+            guardarComLocal();
+            document.getElementById('formSeguimiento').classList.add('hidden');
+            document.getElementById('segTitulo').value = '';
+            document.getElementById('segDescripcion').value = '';
+            renderComunicacion();
+            registrarEvento('seguimiento_creado', '#' + (reg.ordenId || 's/orden') + ' · ' + reg.titulo);
+            procesarColaCom();
+        }
+
+        function agregarAvance(id, nota, estatus) {
+            const reg = comData.seguimientos.find(s => s.id === id);
+            if (!reg) return;
+            reg.historial = reg.historial || [];
+            reg.historial.push({ fecha: ahoraISO(), autor: nombreUsuario(), estatus: estatus, nota: nota || ('Estatus actualizado a ' + estatus) });
+            reg.estatus = estatus;
+            reg.actualizado = ahoraISO();
+            encolarCom('seguimiento', reg);
+            guardarComLocal();
+            renderComunicacion();
+            registrarEvento('seguimiento_actualizado', '#' + (reg.ordenId || 's/orden') + ' · ' + reg.titulo + ' → ' + estatus);
+            procesarColaCom();
+        }
+
+        function eliminarSeguimiento(id) {
+            const reg = comData.seguimientos.find(s => s.id === id);
+            if (!reg) return;
+            if (!confirm('¿Eliminar el seguimiento "' + reg.titulo + '"?\nSu historial también se eliminará.')) return;
+            reg.eliminado = true;
+            reg.actualizado = ahoraISO();
+            encolarCom('seguimiento', reg);
+            guardarComLocal();
+            renderComunicacion();
+            registrarEvento('seguimiento_eliminado', reg.titulo);
+            procesarColaCom();
+        }
+
+        // Delegación de eventos de toda la pestaña de comunicación
+        document.getElementById('contentCom').addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-accion]');
+            if (!btn) return;
+            const accion = btn.dataset.accion;
+            const id = btn.dataset.id;
+
+            if (accion === 'nuevo-canal') { abrirFormCanal(null); return; }
+            if (accion === 'cancelar-canal') { document.getElementById('formCanal').classList.add('hidden'); return; }
+            if (accion === 'guardar-canal') { guardarCanalDesdeFormulario(); return; }
+            if (accion === 'editar-canal') { const c = comData.canales.find(x => x.id === id); if (c) abrirFormCanal(c); return; }
+            if (accion === 'eliminar-canal') { eliminarCanal(id); return; }
+            if (accion === 'wa-canal') {
+                const c = comData.canales.find(x => x.id === id);
+                if (!c) return;
+                window.open(urlWhatsApp(normalizarWhatsApp(c.valor), mensajeWhatsAppCanal(c)), '_blank');
+                registrarEvento('whatsapp_abierto', 'Canal: ' + c.nombre);
+                return;
+            }
+
+            if (accion === 'nuevo-seg') {
+                poblarSelectOrdenes();
+                poblarSelectEstatus(document.getElementById('segEstatus'), 'Abierto');
+                document.getElementById('formSeguimiento').classList.remove('hidden');
+                document.getElementById('segTitulo').focus();
+                return;
+            }
+            if (accion === 'cancelar-seg') { document.getElementById('formSeguimiento').classList.add('hidden'); return; }
+            if (accion === 'guardar-seg') { crearSeguimientoDesdeFormulario(); return; }
+            if (accion === 'eliminar-seg') { eliminarSeguimiento(id); return; }
+            if (accion === 'reabrir-seg') { agregarAvance(id, 'Seguimiento reabierto', 'En proceso'); return; }
+            if (accion === 'guardar-avance') {
+                const card = btn.closest('[data-seg-card]');
+                if (!card) return;
+                const estatus = card.querySelector('[data-avance-estatus]').value;
+                const notaInput = card.querySelector('[data-avance-nota]');
+                agregarAvance(id, notaInput.value.trim(), estatus);
+                return;
+            }
+            if (accion === 'wa-seg') {
+                const s = comData.seguimientos.find(x => x.id === id);
+                if (!s) return;
+                const card = btn.closest('[data-seg-card]');
+                const selWA = card ? card.querySelector('[data-wa-canal]') : null;
+                let numero = '';
+                if (selWA && selWA.value) {
+                    const c = comData.canales.find(x => x.id === selWA.value);
+                    if (c) numero = normalizarWhatsApp(c.valor);
+                }
+                window.open(urlWhatsApp(numero, mensajeWhatsAppSeguimiento(s)), '_blank');
+                registrarEvento('whatsapp_abierto', 'Seguimiento: ' + s.titulo);
+                return;
+            }
+        });
+
+        document.getElementById('filtroSeguimientos').addEventListener('change', renderComunicacion);
+        document.getElementById('comSyncEstado').addEventListener('click', () => { if (hayBackend()) sincronizarComRemoto(); });
+        window.addEventListener('online', procesarColaCom);
+
+        /* ============================================================
+           v2.6 — ATAJOS Y ARRANQUE
+           ============================================================ */
+        document.getElementById('btnRefrescar').addEventListener('click', () => {
+            registrarEvento('actualizar_datos');
+            cargarDatos();
+        });
+
+        // Escape cierra la rutina o el modal de oportunidades (nunca el de acceso)
+        document.addEventListener('keydown', (e) => {
+            if (e.key !== 'Escape') return;
+            const mr = document.getElementById('modalRutina');
+            if (!mr.classList.contains('hidden')) { cerrarRutina(); return; }
+            const mo = document.getElementById('modalOportunidades');
+            if (!mo.classList.contains('hidden')) mo.classList.add('hidden');
+        });
+        document.getElementById('modalOportunidades').addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) e.currentTarget.classList.add('hidden');
+        });
+
+        function iniciarAplicacion() {
+            cargarComLocal();
+            if (gateActivo() && !sesionActual()) {
+                mostrarModalAcceso();
+            } else {
+                mostrarUsuarioSidebar();
+                registrarEvento('visita');
+                cargarDatos();
+            }
+        }
+
+        window.onload = iniciarAplicacion;
     </script>
 </body>
 </html>
